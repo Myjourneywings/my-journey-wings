@@ -13,7 +13,7 @@ const modules: {key:ModuleKey; label:string; short:string; icon:any}[] = [
  {key:'current_account_verification',label:'Current Account Verification',short:'Current Account',icon:Landmark}
 ];
 const pretty = (s:string) => s.replaceAll('_',' ').replace(/\b\w/g, c=>c.toUpperCase());
-function Brand(){return <div className="brand"><div className="brand-mark"><Plane size={25}/></div><div><b>MJW Trading</b><span>TRAVEL SERVICES</span></div></div>}
+function Brand(){return <div className="brand"><div className="brand-mark"><Plane size={25}/></div><div><b>MJW Trading</b><span>TRADING</span></div></div>}
 function Login({onLogin}:{onLogin:()=>void}) {
  const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [busy,setBusy]=useState(false); const [error,setError]=useState('');
  async function submit(e:FormEvent){e.preventDefault();setBusy(true);setError('');const {error}=await supabase.auth.signInWithPassword({email,password});setBusy(false);if(error)setError(error.message);else onLogin();}
