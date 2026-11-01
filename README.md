@@ -51,3 +51,4 @@ Then Pages → Custom domains → add `mjwtrading.com` and follow Cloudflare's p
 - Test role boundaries with admin, manager, agent and viewer accounts.
 - Use private storage and short-lived signed URLs for document access.
 - Do not use real customer data until security tests pass.
+Deployment update - Supabase configuration corrected
