@@ -1,4 +1,4 @@
-
+// Rebuild Case Details popup
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
