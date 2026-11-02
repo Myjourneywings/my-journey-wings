@@ -323,6 +323,102 @@ function CaseTable({ rows }: { rows: CaseRow[] }) {
   );
 }
 
+function AccountSecurity() {
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  async function changePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage('');
+    setError('');
+
+    if (password.length < 12) {
+      setError('Use a password with at least 12 characters.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('The passwords do not match.');
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
+
+      if (userError || !userData.user) {
+        setError('Your session has expired. Please request a new recovery email.');
+        return;
+      }
+
+      const { error: updateError } =
+        await supabase.auth.updateUser({
+          password
+        });
+
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+
+      setPassword('');
+      setConfirmPassword('');
+      setMessage('Password updated successfully. You can now sign in using your new password.');
+    } catch {
+      setError('Unable to update your password. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="module-summary">
+      <div style={{ width: '100%', maxWidth: 520 }}>
+        <h2>Account Security</h2>
+        <p>Change your MJW Trading account password.</p>
+
+        <form onSubmit={changePassword} className="login-form">
+          <label>
+            New password
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={event => setPassword(event.target.value)}
+              minLength={12}
+              required
+            />
+          </label>
+
+          <label>
+            Confirm new password
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={event => setConfirmPassword(event.target.value)}
+              minLength={12}
+              required
+            />
+          </label>
+
+          {error && <div className="error">{error}</div>}
+          {message && <p role="status">{message}</p>}
+
+          <button className="primary" type="submit" disabled={saving}>
+            {saving ? 'Updating password…' : 'Update Password'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 /* MAIN APPLICATION */
 
 function App() {
@@ -781,14 +877,14 @@ function App() {
               <CaseTable rows={cases} />
             </>
           ) : page === 'Settings' ? (
-            <div className="empty-card">
-              <Settings size={28} />
-              <h3>Workspace settings</h3>
-              <p>
-                Account and organisation settings
-                will be available here.
-              </p>
-            </div>
+  <div className="empty-card">
+    <Settings size={28} />
+    <h3>Workspace settings</h3>
+    <p>
+      Account and organisation settings
+      will be available here.
+    </p>
+  </div>
           ) : [
               'Team & Users',
               'Reports',
