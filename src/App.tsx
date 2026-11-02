@@ -485,6 +485,30 @@ const [activityError, setActivityError] =
 const [employeeNames, setEmployeeNames] =
   useState<Record<string, string>>({});
 
+const [documents, setDocuments] = useState<
+  {
+    id: string;
+    file_name: string;
+    file_path: string;
+    file_type: string | null;
+    file_size: number | null;
+    uploaded_by: string | null;
+    created_at: string;
+  }[]
+>([]);
+
+const [documentsLoading, setDocumentsLoading] =
+  useState(true);
+
+const [documentUploading, setDocumentUploading] =
+  useState(false);
+
+const [documentError, setDocumentError] =
+  useState('');
+
+const [documentNotice, setDocumentNotice] =
+  useState('');
+
 
 useEffect(() => {
   let cancelled = false;
@@ -563,6 +587,144 @@ useEffect(() => {
   };
 }, [selectedCase.id, selectedCase.status]);
 
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function loadDocuments() {
+    setDocumentsLoading(true);
+    setDocumentError('');
+
+    const { data, error } = await supabase
+      .from('case_documents')
+      .select(
+        'id,file_name,file_path,file_type,file_size,uploaded_by,created_at'
+      )
+      .eq('case_id', selectedCase.id)
+      .order('created_at', { ascending: false });
+
+    if (cancelled) return;
+
+    if (error) {
+      setDocumentError(error.message);
+      setDocuments([]);
+    } else {
+      setDocuments(data || []);
+    }
+
+    setDocumentsLoading(false);
+  }
+
+  void loadDocuments();
+
+  return () => {
+    cancelled = true;
+  };
+}, [selectedCase.id]);
+
+async function uploadDocument(
+  event: React.ChangeEvent<HTMLInputElement>
+) {
+  const file = event.target.files?.[0];
+
+  if (!file) return;
+
+  event.target.value = '';
+
+  if (!canEdit) {
+    setDocumentError('You do not have permission to upload documents.');
+    return;
+  }
+
+  const allowedTypes = [
+    'application/pdf',
+    'image/jpeg',
+    'image/png'
+  ];
+
+  if (!allowedTypes.includes(file.type)) {
+    setDocumentError('Only PDF, JPG and PNG files are allowed.');
+    return;
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    setDocumentError('Maximum file size is 10 MB.');
+    return;
+  }
+
+  setDocumentUploading(true);
+  setDocumentError('');
+  setDocumentNotice('');
+
+  let uploadedPath = '';
+
+  try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError) throw userError;
+    if (!user) throw new Error('Please sign in again.');
+
+    const safeName = file.name.replace(
+      /[^a-zA-Z0-9._-]/g,
+      '_'
+    );
+
+    const filePath =
+      `${selectedCase.id}/${crypto.randomUUID()}-${safeName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('case-documents')
+      .upload(filePath, file, {
+        contentType: file.type,
+        upsert: false
+      });
+
+    if (uploadError) throw uploadError;
+
+    uploadedPath = filePath;
+
+    const { data, error: insertError } = await supabase
+      .from('case_documents')
+      .insert({
+        case_id: selectedCase.id,
+        file_name: file.name,
+        file_path: filePath,
+        file_type: file.type,
+        file_size: file.size,
+        uploaded_by: user.id
+      })
+      .select(
+        'id,file_name,file_path,file_type,file_size,uploaded_by,created_at'
+      )
+      .single();
+
+    if (insertError) throw insertError;
+
+    setDocuments(previous => [data, ...previous]);
+    setDocumentNotice('Document uploaded successfully.');
+  } catch (error) {
+    if (uploadedPath) {
+      const { error: cleanupError } = await supabase.storage
+        .from('case-documents')
+        .remove([uploadedPath]);
+
+      if (cleanupError) {
+        console.error('Upload cleanup failed:', cleanupError);
+      }
+    }
+
+    setDocumentError(
+      error instanceof Error
+        ? error.message
+        : 'Unable to upload document.'
+    );
+  } finally {
+    setDocumentUploading(false);
+  }
+}
 
   async function saveChanges() {
     if (!customerName.trim()) {
@@ -711,6 +873,76 @@ useEffect(() => {
             selectedCase.created_at
           ).toLocaleDateString()}
         </p>
+
+<section className="case-documents-section">
+  <h3>Case Documents</h3>
+
+  {canEdit && (
+    <div style={{ marginBottom: '16px' }}>
+      <label
+        style={{
+          display: 'inline-block',
+          padding: '10px 16px',
+          background: '#1d5f9f',
+          color: '#fff',
+          borderRadius: '8px',
+          cursor: documentUploading ? 'wait' : 'pointer'
+        }}
+      >
+        {documentUploading
+          ? 'Uploading...'
+          : '+ Upload Document'}
+
+        <input
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png"
+          disabled={documentUploading}
+          onChange={uploadDocument}
+          style={{ display: 'none' }}
+        />
+      </label>
+    </div>
+  )}
+
+  {documentError && (
+    <p style={{ color: '#b42318' }}>
+      {documentError}
+    </p>
+  )}
+
+  {documentNotice && (
+    <p style={{ color: '#16703c' }}>
+      {documentNotice}
+    </p>
+  )}
+
+  {documentsLoading ? (
+    <p>Loading documents...</p>
+  ) : documents.length === 0 ? (
+    <p>No documents uploaded yet.</p>
+  ) : (
+    <div>
+      {documents.map(doc => (
+        <div
+          key={doc.id}
+          style={{
+            padding: '12px',
+            marginBottom: '8px',
+            border: '1px solid #dce4ee',
+            borderRadius: '8px'
+          }}
+        >
+          <strong>{doc.file_name}</strong>
+
+          <p style={{ margin: '6px 0 0' }}>
+            Uploaded:{' '}
+            {new Date(doc.created_at).toLocaleString()}
+          </p>
+        </div>
+      ))}
+    </div>
+  )}
+</section>
 
 {!editing && (
   <section
