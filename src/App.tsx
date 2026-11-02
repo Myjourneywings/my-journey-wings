@@ -877,14 +877,7 @@ function App() {
               <CaseTable rows={cases} />
             </>
           ) : page === 'Settings' ? (
-  <div className="empty-card">
-    <Settings size={28} />
-    <h3>Workspace settings</h3>
-    <p>
-      Account and organisation settings
-      will be available here.
-    </p>
-  </div>
+  <AccountSecurity />
           ) : [
               'Team & Users',
               'Reports',
