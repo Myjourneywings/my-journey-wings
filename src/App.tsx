@@ -482,12 +482,17 @@ const [activityLoading, setActivityLoading] =
 const [activityError, setActivityError] =
   useState('');
 
+const [employeeNames, setEmployeeNames] =
+  useState<Record<string, string>>({});
+
+
 useEffect(() => {
   let cancelled = false;
 
   async function loadActivity() {
     setActivityLoading(true);
     setActivityError('');
+    setEmployeeNames({});
 
     const { data, error } = await supabase
       .from('case_activity')
@@ -501,11 +506,54 @@ useEffect(() => {
 
     if (error) {
       setActivityError(error.message);
-    } else {
-      setActivities((data || []) as CaseActivityRow[]);
+      setActivities([]);
+      setActivityLoading(false);
+      return;
     }
 
-    setActivityLoading(false);
+    const activityRows =
+      (data || []) as CaseActivityRow[];
+
+    setActivities(activityRows);
+
+    const userIds = [
+      ...new Set(
+        activityRows
+          .map(item => item.changed_by)
+          .filter((id): id is string => Boolean(id))
+      )
+    ];
+
+    if (userIds.length > 0) {
+      const { data: profiles, error: profileError } =
+        await supabase
+          .from('profiles')
+          .select('id,full_name')
+          .in('id', userIds);
+
+      if (cancelled) return;
+
+      if (profileError) {
+        console.error(
+          'Unable to load employee names:',
+          profileError
+        );
+      } else {
+        const names: Record<string, string> = {};
+
+        for (const profile of profiles || []) {
+          if (profile.id && profile.full_name) {
+            names[profile.id] = profile.full_name;
+          }
+        }
+
+        setEmployeeNames(names);
+      }
+    }
+
+    if (!cancelled) {
+      setActivityLoading(false);
+    }
   }
 
   void loadActivity();
@@ -514,6 +562,7 @@ useEffect(() => {
     cancelled = true;
   };
 }, [selectedCase.id, selectedCase.status]);
+
 
   async function saveChanges() {
     if (!customerName.trim()) {
@@ -736,7 +785,12 @@ useEffect(() => {
               ))}
 
               <p style={{ fontSize: 12, color: '#64748b' }}>
-                Changed by: {activity.changed_by || 'System'}
+                
+Changed by: {activity.changed_by
+  ? employeeNames[activity.changed_by] ||
+    'Employee name unavailable'
+  : 'System'}
+
               </p>
             </div>
           );
