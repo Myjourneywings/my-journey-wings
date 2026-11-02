@@ -435,7 +435,59 @@ function App() {
 
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
+  const [newCaseOpen, setNewCaseOpen] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+const [referenceNumber, setReferenceNumber] = useState('');
+const [caseSaving, setCaseSaving] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  async function saveNewCase(event: React.FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+
+  if (!session?.user || profile?.role !== 'super_admin') {
+    setNotice('Only Super Admins can create cases.');
+    return;
+  }
+
+  if (!customerName.trim()) {
+    setNotice('Please enter the customer name.');
+    return;
+  }
+
+  setCaseSaving(true);
+  setNotice('');
+
+  try {
+    const { data, error } = await supabase
+      .from('verification_cases')
+      .insert({
+        module: page,
+        customer_name: customerName.trim(),
+        reference_number: referenceNumber.trim() || null,
+        status: 'new',
+        created_by: session.user.id
+      })
+      .select(
+        'id,case_number,module,status,customer_name,reference_number,created_at'
+      )
+      .single();
+
+    if (error) throw error;
+
+    setCases((previous) => [data as CaseRow, ...previous].slice(0, 8));
+    setCustomerName('');
+    setReferenceNumber('');
+    setNewCaseOpen(false);
+    setNotice('New verification case created successfully.');
+  } catch (error) {
+    setNotice(
+      error instanceof Error
+        ? 'Unable to create case: ' + error.message
+        : 'Unable to create case. Please try again.'
+    );
+  } finally {
+    setCaseSaving(false);
+  }
+}
 
   useEffect(() => {
     let active = true;
@@ -763,18 +815,60 @@ function App() {
               !['Team & Users', 'Reports', 'Leaderboard'].includes(page) && (
                 <button
                   className="primary"
-                  onClick={() =>
-                    setNotice(
-                      'Case creation will be available in a future update.'
-                    )
-                  }
+                  onClick={() => setNewCaseOpen(true)}
                 >
                   <Plus size={17} />
                   New case
                 </button>
               )}
           </div>
+{newCaseOpen && (
+  <div className="new-case-overlay">
+    <div className="new-case-modal">
+      <h2>Create New Verification Case</h2>
+      <p>Enter the customer details below.</p>
 
+      <form onSubmit={saveNewCase}>
+        <label htmlFor="case-customer">Customer Name *</label>
+        <input
+          id="case-customer"
+          type="text"
+          value={customerName}
+          onChange={(e) => setCustomerName(e.target.value)}
+          placeholder="Enter customer name"
+          required
+        />
+
+        <label htmlFor="case-reference">Reference Number</label>
+        <input
+          id="case-reference"
+          type="text"
+          value={referenceNumber}
+          onChange={(e) => setReferenceNumber(e.target.value)}
+          placeholder="Enter reference number"
+        />
+
+        <div className="new-case-actions">
+          <button
+            type="button"
+            onClick={() => setNewCaseOpen(false)}
+            disabled={caseSaving}
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            className="primary"
+            disabled={caseSaving}
+          >
+            {caseSaving ? 'Saving...' : 'Save Case'}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
           {notice && (
             <div className="notice">
               <span>{notice}</span>
