@@ -622,6 +622,37 @@ useEffect(() => {
   };
 }, [selectedCase.id]);
 
+async function viewDocument(
+  filePath: string
+) {
+  setDocumentError('');
+  setDocumentNotice('');
+
+  try {
+    const { data, error } = await supabase.storage
+      .from('case-documents')
+      .createSignedUrl(filePath, 60);
+
+    if (error) throw error;
+
+    if (!data?.signedUrl) {
+      throw new Error('Unable to create document link.');
+    }
+
+    window.open(
+      data.signedUrl,
+      '_blank',
+      'noopener,noreferrer'
+    );
+  } catch (error) {
+    setDocumentError(
+      error instanceof Error
+        ? error.message
+        : 'Unable to open document.'
+    );
+  }
+}
+
 async function uploadDocument(
   event: React.ChangeEvent<HTMLInputElement>
 ) {
@@ -932,12 +963,29 @@ async function uploadDocument(
             borderRadius: '8px'
           }}
         >
-          <strong>{doc.file_name}</strong>
+         
+<strong>{doc.file_name}</strong>
 
-          <p style={{ margin: '6px 0 0' }}>
-            Uploaded:{' '}
-            {new Date(doc.created_at).toLocaleString()}
-          </p>
+<p>
+  Uploaded: {new Date(doc.created_at).toLocaleString()}
+</p>
+
+<button
+  type="button"
+  onClick={() => void viewDocument(doc.file_path)}
+  style={{
+    marginTop: '10px',
+    padding: '8px 14px',
+    background: '#1d5f9f',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer'
+  }}
+>
+  View / Download
+</button>
+
         </div>
       ))}
     </div>
