@@ -460,7 +460,14 @@ const [caseSaving, setCaseSaving] = useState(false);
     const { data, error } = await supabase
       .from('verification_cases')
       .insert({
-        module: page,
+        
+module: ({
+  'Loan Verification': 'loan_verification',
+  'Solar Verification': 'solar_verification',
+  'Pre-Sanction Solar': 'pre_sanction_solar',
+  'Current Account Verification': 'current_account_verification'
+} as Record<string, string>)[page],
+
         customer_name: customerName.trim(),
         reference_number: referenceNumber.trim() || null,
         status: 'new',
