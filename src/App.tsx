@@ -442,17 +442,72 @@ function AccountSecurity() {
   );
 }
 
+
 function CaseDetails({
   selectedCase,
-  onClose
+  onClose,
+  onSaved,
+  canEdit
 }: {
   selectedCase: CaseRow;
   onClose: () => void;
+  onSaved: (updatedCase: CaseRow) => void;
+  canEdit: boolean;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [customerName, setCustomerName] =
+    useState(selectedCase.customer_name);
+  const [referenceNumber, setReferenceNumber] =
+    useState(selectedCase.reference_number || '');
+  const [status, setStatus] =
+    useState(selectedCase.status);
+  const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  async function saveChanges() {
+    if (!customerName.trim()) {
+      setErrorMessage('Customer name is required.');
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage('');
+
+    try {
+      const { data, error } = await supabase
+        .from('verification_cases')
+        .update({
+          customer_name: customerName.trim(),
+          reference_number: referenceNumber.trim() || null,
+          status
+        })
+        .eq('id', selectedCase.id)
+        .select(
+          'id,case_number,module,status,customer_name,reference_number,created_at'
+        )
+        .single();
+
+      if (error) throw error;
+
+      onSaved(data as CaseRow);
+      setEditing(false);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to save changes.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div
       role="presentation"
-      onClick={onClose}
+      onClick={() => {
+        if (!saving) onClose();
+      }}
       style={{
         position: 'fixed',
         inset: 0,
@@ -468,7 +523,7 @@ function CaseDetails({
         role="dialog"
         aria-modal="true"
         aria-label="Case Details"
-        onClick={(event) => event.stopPropagation()}
+        onClick={event => event.stopPropagation()}
         style={{
           background: '#fff',
           padding: 30,
@@ -481,19 +536,136 @@ function CaseDetails({
       >
         <h2>Case Details</h2>
 
-        <p><strong>Case ID:</strong> #{selectedCase.case_number}</p>
-        <p><strong>Customer:</strong> {selectedCase.customer_name}</p>
-        <p><strong>Reference:</strong> {selectedCase.reference_number || 'N/A'}</p>
-        <p><strong>Module:</strong> {pretty(selectedCase.module)}</p>
-        <p><strong>Status:</strong> {pretty(selectedCase.status)}</p>
         <p>
-          <strong>Created:</strong>{' '}
-          {new Date(selectedCase.created_at).toLocaleDateString()}
+          <strong>Case ID:</strong>
+          {' '}#{selectedCase.case_number}
         </p>
 
-        <button type="button" onClick={onClose}>
-          Close
-        </button>
+        {editing ? (
+          <>
+            <p>
+              <strong>Customer Name</strong>
+              <input
+                value={customerName}
+                onChange={event =>
+                  setCustomerName(event.target.value)
+                }
+                style={{ width: '100%', padding: 10 }}
+              />
+            </p>
+
+            <p>
+              <strong>Reference Number</strong>
+              <input
+                value={referenceNumber}
+                onChange={event =>
+                  setReferenceNumber(event.target.value)
+                }
+                style={{ width: '100%', padding: 10 }}
+              />
+            </p>
+
+            <p>
+              <strong>Status</strong>
+              <select
+                value={status}
+                onChange={event =>
+                  setStatus(event.target.value)
+                }
+                style={{ width: '100%', padding: 10 }}
+              >
+                <option value="new">New</option>
+                <option value="in_progress">In Progress</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </p>
+          </>
+        ) : (
+          <>
+            <p>
+              <strong>Customer:</strong>
+              {' '}{selectedCase.customer_name}
+            </p>
+            <p>
+              <strong>Reference:</strong>
+              {' '}{selectedCase.reference_number || 'N/A'}
+            </p>
+            <p>
+              <strong>Status:</strong>
+              {' '}{pretty(selectedCase.status)}
+            </p>
+          </>
+        )}
+
+        <p>
+          <strong>Module:</strong>
+          {' '}{pretty(selectedCase.module)}
+        </p>
+
+        <p>
+          <strong>Created:</strong>
+          {' '}
+          {new Date(
+            selectedCase.created_at
+          ).toLocaleDateString()}
+        </p>
+
+        {errorMessage && (
+          <p role="alert" style={{ color: 'red' }}>
+            {errorMessage}
+          </p>
+        )}
+
+        <div style={{
+          display: 'flex',
+          gap: 10,
+          marginTop: 20
+        }}>
+          {editing ? (
+            <>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={saveChanges}
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  setEditing(false);
+                  setErrorMessage('');
+                  setCustomerName(selectedCase.customer_name);
+                  setReferenceNumber(
+                    selectedCase.reference_number || ''
+                  );
+                  setStatus(selectedCase.status);
+                }}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                >
+                  Edit Case
+                </button>
+              )}
+
+              <button type="button" onClick={onClose}>
+                Close
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1118,12 +1290,25 @@ module: ({
         </footer>
       </main>
       
+
 {selectedCase && (
   <CaseDetails
     selectedCase={selectedCase}
     onClose={() => setSelectedCase(null)}
+    canEdit={profile?.role === 'super_admin'}
+    onSaved={(updatedCase) => {
+      setCases(previous =>
+        previous.map(item =>
+          item.id === updatedCase.id
+            ? updatedCase
+            : item
+        )
+      );
+      setSelectedCase(updatedCase);
+    }}
   />
 )}
+
 
     </div>
   );
