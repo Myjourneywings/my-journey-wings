@@ -36,6 +36,15 @@ type ModuleKey =
   | 'pre_sanction_solar'
   | 'current_account_verification';
 
+type CaseActivityRow = {
+  id: string;
+  action: string;
+  old_values: Record<string, string | null> | null;
+  new_values: Record<string, string | null> | null;
+  changed_by: string | null;
+  created_at: string;
+};
+
 type CaseRow = {
   id: string;
   case_number: number;
@@ -464,6 +473,48 @@ function CaseDetails({
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+const [activities, setActivities] =
+  useState<CaseActivityRow[]>([]);
+
+const [activityLoading, setActivityLoading] =
+  useState(true);
+
+const [activityError, setActivityError] =
+  useState('');
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function loadActivity() {
+    setActivityLoading(true);
+    setActivityError('');
+
+    const { data, error } = await supabase
+      .from('case_activity')
+      .select(
+        'id,action,old_values,new_values,changed_by,created_at'
+      )
+      .eq('case_id', selectedCase.id)
+      .order('created_at', { ascending: false });
+
+    if (cancelled) return;
+
+    if (error) {
+      setActivityError(error.message);
+    } else {
+      setActivities((data || []) as CaseActivityRow[]);
+    }
+
+    setActivityLoading(false);
+  }
+
+  void loadActivity();
+
+  return () => {
+    cancelled = true;
+  };
+}, [selectedCase.id, selectedCase.status]);
+
   async function saveChanges() {
     if (!customerName.trim()) {
       setErrorMessage('Customer name is required.');
@@ -611,6 +662,89 @@ function CaseDetails({
             selectedCase.created_at
           ).toLocaleDateString()}
         </p>
+
+{!editing && (
+  <section
+    style={{
+      marginTop: 24,
+      paddingTop: 18,
+      borderTop: '1px solid #e2e8f0'
+    }}
+  >
+    <h3>Activity History</h3>
+
+    {activityLoading ? (
+      <p>Loading activity history...</p>
+    ) : activityError ? (
+      <p role="alert" style={{ color: 'red' }}>
+        Unable to load activity: {activityError}
+      </p>
+    ) : activities.length === 0 ? (
+      <p>No activity recorded yet.</p>
+    ) : (
+      <div style={{ display: 'grid', gap: 12 }}>
+        {activities.map(activity => {
+          const oldValues = activity.old_values || {};
+          const newValues = activity.new_values || {};
+
+          const changedFields = [
+            'customer_name',
+            'reference_number',
+            'status'
+          ].filter(
+            field => oldValues[field] !== newValues[field]
+          );
+
+          return (
+            <div
+              key={activity.id}
+              style={{
+                padding: 12,
+                background: '#f8fafc',
+                borderRadius: 10,
+                border: '1px solid #e2e8f0'
+              }}
+            >
+              <strong>Case Updated</strong>
+
+              <p style={{ fontSize: 12, color: '#64748b' }}>
+                {new Date(
+                  activity.created_at
+                ).toLocaleString('en-IN', {
+                  timeZone: 'Asia/Kolkata'
+                })}
+              </p>
+
+              {changedFields.map(field => (
+                <p key={field}>
+                  <strong>
+                    {field === 'customer_name'
+                      ? 'Customer Name'
+                      : field === 'reference_number'
+                      ? 'Reference Number'
+                      : 'Status'}:
+                  </strong>
+                  {' '}
+                  {field === 'status'
+                    ? pretty(oldValues[field] || '')
+                    : oldValues[field] || 'Empty'}
+                  {' → '}
+                  {field === 'status'
+                    ? pretty(newValues[field] || '')
+                    : newValues[field] || 'Empty'}
+                </p>
+              ))}
+
+              <p style={{ fontSize: 12, color: '#64748b' }}>
+                Changed by: {activity.changed_by || 'System'}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </section>
+)}
 
         {errorMessage && (
           <p role="alert" style={{ color: 'red' }}>
