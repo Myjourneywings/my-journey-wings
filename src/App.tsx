@@ -262,7 +262,15 @@ function Stat({
 
 /* CASE TABLE */
 
-function CaseTable({ rows }: { rows: CaseRow[] }) {
+
+function CaseTable({
+  rows,
+  onSelectCase
+}: {
+  rows: CaseRow[];
+  onSelectCase: (selectedCase: CaseRow) => void;
+}) {
+
   return (
     <div className="table-wrap">
       <table>
@@ -280,9 +288,24 @@ function CaseTable({ rows }: { rows: CaseRow[] }) {
           {rows.length > 0 ? (
             rows.map(item => (
               <tr key={item.id}>
-                <td className="case-id">
-                  #{item.case_number}
-                </td>
+                
+<td className="case-id">
+  <button
+    type="button"
+    onClick={() => onSelectCase(item)}
+    style={{
+      background: 'none',
+      border: 'none',
+      color: '#1763a6',
+      cursor: 'pointer',
+      fontWeight: 700,
+      padding: 0
+    }}
+  >
+    #{item.case_number}
+  </button>
+</td>
+
 
                 <td>
                   <b>{item.customer_name}</b>
@@ -419,6 +442,63 @@ function AccountSecurity() {
   );
 }
 
+function CaseDetails({
+  selectedCase,
+  onClose
+}: {
+  selectedCase: CaseRow;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      role="presentation"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15, 23, 42, 0.65)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: 20
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Case Details"
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          background: '#fff',
+          padding: 30,
+          borderRadius: 16,
+          width: '100%',
+          maxWidth: 550,
+          maxHeight: '90vh',
+          overflowY: 'auto'
+        }}
+      >
+        <h2>Case Details</h2>
+
+        <p><strong>Case ID:</strong> #{selectedCase.case_number}</p>
+        <p><strong>Customer:</strong> {selectedCase.customer_name}</p>
+        <p><strong>Reference:</strong> {selectedCase.reference_number || 'N/A'}</p>
+        <p><strong>Module:</strong> {pretty(selectedCase.module)}</p>
+        <p><strong>Status:</strong> {pretty(selectedCase.status)}</p>
+        <p>
+          <strong>Created:</strong>{' '}
+          {new Date(selectedCase.created_at).toLocaleDateString()}
+        </p>
+
+        <button type="button" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* MAIN APPLICATION */
 
 function App() {
@@ -429,6 +509,9 @@ function App() {
   const [page, setPage] = useState('Dashboard');
 
   const [cases, setCases] = useState<CaseRow[]>([]);
+  
+const [selectedCase, setSelectedCase] = useState<CaseRow | null>(null);
+
 
   const [profile, setProfile] =
     useState<Profile | null>(null);
@@ -975,7 +1058,10 @@ module: ({
                 </button>
               </div>
 
-              <CaseTable rows={cases} />
+              <CaseTable
+  rows={cases}
+  onSelectCase={(selectedCase) => setSelectedCase(selectedCase)}
+/>
             </>
           ) : page === 'Settings' ? (
   <AccountSecurity />
@@ -1015,7 +1101,12 @@ module: ({
                 </div>
               </div>
 
-              <CaseTable rows={filtered} />
+              
+<CaseTable
+  rows={filtered}
+  onSelectCase={setSelectedCase}
+/>
+
             </>
           )}
         </div>
@@ -1026,6 +1117,14 @@ module: ({
           Secure Management Portal
         </footer>
       </main>
+      
+{selectedCase && (
+  <CaseDetails
+    selectedCase={selectedCase}
+    onClose={() => setSelectedCase(null)}
+  />
+)}
+
     </div>
   );
 }
