@@ -467,7 +467,7 @@ function CaseDetails({
   selectedCase,
   onClose,
   onSaved,
-  canEdit
+    canEdit,
   canUploadDocuments,
 }: {
   selectedCase: CaseRow;
