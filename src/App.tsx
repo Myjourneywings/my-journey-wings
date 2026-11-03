@@ -509,6 +509,9 @@ const [documentError, setDocumentError] =
 const [documentNotice, setDocumentNotice] =
   useState('');
 
+const [documentUploaderNames, setDocumentUploaderNames] =
+  useState<Record<string, string>>({});
+
 
 useEffect(() => {
   let cancelled = false;
@@ -610,6 +613,44 @@ useEffect(() => {
       setDocuments([]);
     } else {
       setDocuments(data || []);
+      
+const uploadedByIds = [
+  ...new Set(
+    (data || [])
+      .map(doc => doc.uploaded_by)
+      .filter((id): id is string => Boolean(id))
+  )
+];
+
+setDocumentUploaderNames({});
+
+if (uploadedByIds.length > 0) {
+  const { data: profiles, error: profileError } =
+    await supabase
+      .from('profiles')
+      .select('id,full_name')
+      .in('id', uploadedByIds);
+
+  if (cancelled) return;
+
+  if (profileError) {
+    console.error(
+      'Unable to load document uploader names:',
+      profileError
+    );
+  } else {
+    const names: Record<string, string> = {};
+
+    for (const profile of profiles || []) {
+      if (profile.id && profile.full_name) {
+        names[profile.id] = profile.full_name;
+      }
+    }
+
+    setDocumentUploaderNames(names);
+  }
+}
+
     }
 
     setDocumentsLoading(false);
@@ -785,6 +826,19 @@ async function uploadDocument(
     if (insertError) throw insertError;
 
     setDocuments(previous => [data, ...previous]);
+    
+
+const { data: uploaderProfile } = await supabase
+  .from('profiles')
+  .select('full_name')
+  .eq('id', user.id)
+  .maybeSingle();
+
+setDocumentUploaderNames(previous => ({
+  ...previous,
+  [user.id]: uploaderProfile?.full_name || 'Unknown Employee'
+}));
+
     setDocumentNotice('Document uploaded successfully.');
   } catch (error) {
     if (uploadedPath) {
@@ -1018,6 +1072,13 @@ async function uploadDocument(
 
 <p>
   Uploaded: {new Date(doc.created_at).toLocaleString()}
+</p>
+
+<p style={{ marginTop: '6px' }}>
+  <strong>Uploaded By:</strong>{' '}
+  {doc.uploaded_by
+    ? documentUploaderNames[doc.uploaded_by] || 'Unknown Employee'
+    : 'Unknown Employee'}
 </p>
 
 <button
