@@ -53,6 +53,9 @@ type CaseRow = {
   customer_name: string;
   reference_number: string | null;
   created_at: string;
+  
+assigned_to: string | null;
+
 };
 
 type CaseDocumentRow = {
@@ -483,6 +486,41 @@ function CaseDetails({
     useState(selectedCase.reference_number || '');
   const [status, setStatus] =
     useState(selectedCase.status);
+  
+const [assignedTo, setAssignedTo] = useState<string>(
+  selectedCase.assigned_to || ''
+);
+const [agents, setAgents] = useState<
+  { id: string; full_name: string | null; email: string | null }[]
+>([]);
+  useEffect(() => {
+  if (!canEdit) return;
+
+  let cancelled = false;
+
+  async function loadAgents() {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id,full_name,email')
+      .eq('role', 'agent')
+      .order('full_name', { ascending: true });
+
+    if (cancelled) return;
+
+    if (error) {
+      console.error('Unable to load agents:', error);
+      return;
+    }
+
+    setAgents(data || []);
+  }
+
+  void loadAgents();
+
+  return () => {
+    cancelled = true;
+  };
+}, [canEdit]);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -965,13 +1003,14 @@ setDocumentUploaderNames(previous => ({
       const { data, error } = await supabase
         .from('verification_cases')
         .update({
-          customer_name: customerName.trim(),
-          reference_number: referenceNumber.trim() || null,
-          status
-        })
+  customer_name: customerName.trim(),
+  reference_number: referenceNumber.trim() || null,
+  status,
+  assigned_to: assignedTo || null
+})
         .eq('id', selectedCase.id)
         .select(
-          'id,case_number,module,status,customer_name,reference_number,created_at'
+          'id,case_number,module,status,customer_name,reference_number,created_at,assigned_to'
         )
         .single();
 
@@ -1069,6 +1108,25 @@ setDocumentUploaderNames(previous => ({
                 <option value="rejected">Rejected</option>
               </select>
             </p>
+            <p>
+  <strong>Assign to Agent:</strong>
+  <select
+    value={assignedTo}
+    onChange={(event) => setAssignedTo(event.target.value)}
+    style={{
+      width: '100%',
+      padding: 10,
+      marginTop: 8
+    }}
+  >
+    <option value="">Unassigned</option>
+    {agents.map((agent) => (
+      <option key={agent.id} value={agent.id}>
+        {agent.full_name || agent.email || agent.id}
+      </option>
+    ))}
+  </select>
+</p>
           </>
         ) : (
           <>
@@ -1519,7 +1577,7 @@ module: ({
           supabase
             .from('verification_cases')
             .select(
-              'id,case_number,module,status,customer_name,reference_number,created_at'
+              'id,case_number,module,status,customer_name,reference_number,created_at,assigned_to'
             )
             .order('created_at', {
               ascending: false
