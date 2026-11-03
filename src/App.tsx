@@ -468,11 +468,13 @@ function CaseDetails({
   onClose,
   onSaved,
   canEdit
+  canUploadDocuments,
 }: {
   selectedCase: CaseRow;
   onClose: () => void;
   onSaved: (updatedCase: CaseRow) => void;
   canEdit: boolean;
+  canUploadDocuments: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [customerName, setCustomerName] =
@@ -839,7 +841,7 @@ async function uploadDocument(
 
   event.target.value = '';
 
-  if (!canEdit) {
+  if (!canUploadDocuments) {
     setDocumentError('You do not have permission to upload documents.');
     return;
   }
@@ -1100,7 +1102,7 @@ setDocumentUploaderNames(previous => ({
 <section className="case-documents-section">
   <h3>Case Documents</h3>
 
-  {canEdit && (
+  {canUploadDocuments && (
     <div style={{ marginBottom: '16px' }}>
       <label
         style={{
@@ -2012,6 +2014,10 @@ module: ({
     selectedCase={selectedCase}
     onClose={() => setSelectedCase(null)}
     canEdit={profile?.role === 'super_admin'}
+    canUploadDocuments={
+  profile?.role === 'super_admin' ||
+  profile?.role === 'agent'
+}
     onSaved={(updatedCase) => {
       setCases(previous =>
         previous.map(item =>
