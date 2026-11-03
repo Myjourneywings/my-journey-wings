@@ -625,42 +625,43 @@ useEffect(() => {
     } else {
       setDocuments(data || []);
       
-const uploadedByIds = [
-  ...new Set(
-    (data || [])
-      .map(doc => doc.uploaded_by)
-      .filter((id): id is string => Boolean(id))
-  )
-];
 
-setDocumentUploaderNames({});
+const names: Record<string, string> = {};
 
-if (uploadedByIds.length > 0) {
-  const { data: profiles, error: profileError } =
-    await supabase
-      .from('profiles')
-      .select('id,full_name')
-      .in('id', uploadedByIds);
+const uniqueDocuments = (data || []).filter(
+  (doc) => Boolean(doc.id && doc.uploaded_by)
+);
 
-  if (cancelled) return;
+const results = await Promise.all(
+  uniqueDocuments.map(async (doc) => {
+    const { data: uploaderName, error: nameError } =
+      await supabase.rpc('get_case_document_uploader_name', {
+        p_document_id: doc.id
+      });
 
-  if (profileError) {
+    return {
+      uploadedBy: doc.uploaded_by,
+      uploaderName,
+      nameError
+    };
+  })
+);
+
+if (cancelled) return;
+
+for (const result of results) {
+  if (result.nameError) {
     console.error(
-      'Unable to load document uploader names:',
-      profileError
+      'Unable to load document uploader name:',
+      result.nameError
     );
-  } else {
-    const names: Record<string, string> = {};
-
-    for (const profile of profiles || []) {
-      if (profile.id && profile.full_name) {
-        names[profile.id] = profile.full_name;
-      }
-    }
-
-    setDocumentUploaderNames(names);
+  } else if (result.uploadedBy && result.uploaderName) {
+    names[result.uploadedBy] = result.uploaderName;
   }
 }
+
+setDocumentUploaderNames(names);
+
 
     }
 
