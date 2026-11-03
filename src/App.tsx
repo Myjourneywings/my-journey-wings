@@ -622,6 +622,56 @@ useEffect(() => {
   };
 }, [selectedCase.id]);
 
+async function deleteDocument(
+  doc: {
+    id: string;
+    file_name: string;
+    file_path: string;
+  }
+) {
+  if (!canEdit) {
+    setDocumentError('You do not have permission to delete documents.');
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Are you sure you want to delete "${doc.file_name}"?`
+  );
+
+  if (!confirmed) return;
+
+  setDocumentError('');
+  setDocumentNotice('');
+
+  try {
+    const { error: storageError } = await supabase.storage
+      .from('case-documents')
+      .remove([doc.file_path]);
+
+    if (storageError) throw storageError;
+
+    const { error: databaseError } = await supabase
+      .from('case_documents')
+      .delete()
+      .eq('id', doc.id)
+      .eq('case_id', selectedCase.id);
+
+    if (databaseError) throw databaseError;
+
+    setDocuments(previous =>
+      previous.filter(item => item.id !== doc.id)
+    );
+
+    setDocumentNotice('Document deleted successfully.');
+  } catch (error) {
+    setDocumentError(
+      error instanceof Error
+        ? error.message
+        : 'Unable to delete document.'
+    );
+  }
+}
+
 async function viewDocument(
   filePath: string
 ) {
@@ -985,6 +1035,25 @@ async function uploadDocument(
 >
   View / Download
 </button>
+
+{canEdit && (
+  <button
+    type="button"
+    onClick={() => void deleteDocument(doc)}
+    style={{
+      marginTop: '10px',
+      marginLeft: '10px',
+      padding: '8px 14px',
+      background: '#b42318',
+      color: '#ffffff',
+      border: 'none',
+      borderRadius: '6px',
+      cursor: 'pointer'
+    }}
+  >
+    Delete
+  </button>
+)}
 
         </div>
       ))}
