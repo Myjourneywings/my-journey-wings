@@ -1409,10 +1409,15 @@ const [caseSaving, setCaseSaving] = useState(false);
   async function saveNewCase(event: React.FormEvent<HTMLFormElement>) {
   event.preventDefault();
 
-  if (!session?.user || profile?.role !== 'super_admin') {
-    setNotice('Only Super Admins can create cases.');
-    return;
-  }
+ 
+if (
+  !session?.user ||
+  !['super_admin', 'agent'].includes(profile?.role ?? '')
+) {
+  setNotice('Only Super Admins and Agents can create cases.');
+  return;
+}
+
 
   if (!customerName.trim()) {
     setNotice('Please enter the customer name.');
