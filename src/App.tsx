@@ -55,6 +55,17 @@ type CaseRow = {
   created_at: string;
 };
 
+type CaseDocumentRow = {
+  id: string;
+  file_name: string;
+  file_path: string;
+  file_type: string | null;
+  file_size: number | null;
+  uploaded_by: string | null;
+  created_at: string;
+  deletion_status: 'active' | 'deleting' | 'delete_failed';
+};
+
 type Profile = {
   full_name: string | null;
   email: string | null;
@@ -485,17 +496,10 @@ const [activityError, setActivityError] =
 const [employeeNames, setEmployeeNames] =
   useState<Record<string, string>>({});
 
-const [documents, setDocuments] = useState<
-  {
-    id: string;
-    file_name: string;
-    file_path: string;
-    file_type: string | null;
-    file_size: number | null;
-    uploaded_by: string | null;
-    created_at: string;
-  }[]
->([]);
+
+const [documents, setDocuments] =
+  useState<CaseDocumentRow[]>([]);
+
 
 const [documentsLoading, setDocumentsLoading] =
   useState(true);
@@ -508,6 +512,9 @@ const [documentError, setDocumentError] =
 
 const [documentNotice, setDocumentNotice] =
   useState('');
+
+const [deletingDocumentId, setDeletingDocumentId] =
+  useState<string | null>(null);
 
 const [documentUploaderNames, setDocumentUploaderNames] =
   useState<Record<string, string>>({});
@@ -600,9 +607,11 @@ useEffect(() => {
 
     const { data, error } = await supabase
       .from('case_documents')
-      .select(
-        'id,file_name,file_path,file_type,file_size,uploaded_by,created_at'
-      )
+      
+.select(
+  'id,file_name,file_path,file_type,file_size,uploaded_by,created_at,deletion_status'
+)
+
       .eq('case_id', selectedCase.id)
       .order('created_at', { ascending: false });
 
@@ -668,6 +677,9 @@ async function deleteDocument(
     id: string;
     file_name: string;
     file_path: string;
+    
+deletion_status: 'active' | 'deleting' | 'delete_failed';
+
   }
 ) {
   if (!canEdit) {
@@ -675,43 +687,117 @@ async function deleteDocument(
     return;
   }
 
-  const confirmed = window.confirm(
-    `Are you sure you want to delete "${doc.file_name}"?`
-  );
+ 
+const confirmed = window.confirm(
+  `Are you sure you want to ${
+    doc.deletion_status === 'delete_failed'
+      ? 'retry deleting'
+      : 'delete'
+  } "${doc.file_name}"?`
+);
 
-  if (!confirmed) return;
 
-  setDocumentError('');
-  setDocumentNotice('');
+  
+if (!confirmed) return;
 
-  try {
-    const { error: storageError } = await supabase.storage
-      .from('case-documents')
-      .remove([doc.file_path]);
+if (deletingDocumentId !== null) return;
+
+
+setDeletingDocumentId(doc.id);
+setDocumentError('');
+setDocumentNotice('');
+
+let deletionStartedByThisRequest = false;
+
+try {
+
+  const { data: deletionStarted, error: beginError } =
+    await supabase.rpc('begin_case_document_deletion', {
+      p_document_id: doc.id,
+      p_case_id: selectedCase.id
+    });
+
+  if (beginError) throw beginError;
+
+  if (deletionStarted !== true) {
+    throw new Error(
+      'Unable to start deletion. The document may already be processing.'
+    );
+  }
+
+deletionStartedByThisRequest = true;
+
+  const { error: storageError } = await supabase.storage
+    .from('case-documents')
+    .remove([doc.file_path]);
+
 
     if (storageError) throw storageError;
 
-    const { error: databaseError } = await supabase
-      .from('case_documents')
-      .delete()
-      .eq('id', doc.id)
-      .eq('case_id', selectedCase.id);
+   
+const { data: deletionFinished, error: finishError } =
+  await supabase.rpc('finish_case_document_deletion', {
+    p_document_id: doc.id,
+    p_case_id: selectedCase.id
+  });
 
-    if (databaseError) throw databaseError;
+if (finishError) throw finishError;
+
+if (deletionFinished !== true) {
+  throw new Error(
+    'The file removal completed, but the database record could not be removed.'
+  );
+}
+
 
     setDocuments(previous =>
       previous.filter(item => item.id !== doc.id)
     );
 
     setDocumentNotice('Document deleted successfully.');
-  } catch (error) {
-    setDocumentError(
-      error instanceof Error
-        ? error.message
-        : 'Unable to delete document.'
+ 
+  
+} catch (error) {
+  const originalMessage =
+    error instanceof Error
+      ? error.message
+      : 'Unable to delete document.';
+
+  
+if (deletionStartedByThisRequest) {
+  try {
+
+    const { error: failureError } = await supabase.rpc(
+      'fail_case_document_deletion',
+      {
+        p_document_id: doc.id,
+        p_case_id: selectedCase.id
+      }
+    );
+
+    if (failureError) {
+      console.error(
+        'Unable to record document deletion failure:',
+        failureError
+      );
+    }
+  } catch (trackingError) {
+    console.error(
+      'Deletion failure tracking error:',
+      trackingError
     );
   }
 }
+
+  setDocumentError(
+    `${originalMessage} Please check the document before retrying.`
+  );
+} finally {
+  setDeletingDocumentId(null);
+}
+
+}
+
 
 async function viewDocument(
   filePath: string
@@ -818,10 +904,12 @@ async function uploadDocument(
         file_size: file.size,
         uploaded_by: user.id
       })
-      .select(
-        'id,file_name,file_path,file_type,file_size,uploaded_by,created_at'
-      )
-      .single();
+      
+.select(
+  'id,file_name,file_path,file_type,file_size,uploaded_by,created_at,deletion_status'
+)
+.single();
+
 
     if (insertError) throw insertError;
 
@@ -1070,6 +1158,20 @@ setDocumentUploaderNames(previous => ({
          
 <strong>{doc.file_name}</strong>
 
+{doc.deletion_status === 'deleting' && (
+  <p style={{ color: '#92400e', marginTop: '8px' }}>
+    Deletion in progress or interrupted.
+    Please wait before retrying.
+  </p>
+)}
+
+{doc.deletion_status === 'delete_failed' && (
+  <p style={{ color: '#b42318', marginTop: '8px' }}>
+    Previous deletion attempt failed.
+    This document needs attention.
+  </p>
+)}
+
 <p>
   Uploaded: {new Date(doc.created_at).toLocaleString()}
 </p>
@@ -1097,10 +1199,14 @@ setDocumentUploaderNames(previous => ({
   View / Download
 </button>
 
-{canEdit && (
+
+
+{canEdit && doc.deletion_status === 'active' && (
+
   <button
     type="button"
     onClick={() => void deleteDocument(doc)}
+    disabled={deletingDocumentId !== null}
     style={{
       marginTop: '10px',
       marginLeft: '10px',
@@ -1109,10 +1215,17 @@ setDocumentUploaderNames(previous => ({
       color: '#ffffff',
       border: 'none',
       borderRadius: '6px',
-      cursor: 'pointer'
+      cursor:
+        deletingDocumentId !== null
+          ? 'not-allowed'
+          : 'pointer',
+      opacity:
+        deletingDocumentId !== null ? 0.6 : 1
     }}
   >
-    Delete
+    {deletingDocumentId === doc.id
+      ? 'Deleting...'
+      : 'Delete'}
   </button>
 )}
 
