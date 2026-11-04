@@ -1471,13 +1471,13 @@ Changed by: {activity.changed_by
               <button type="button" onClick={onClose}>
                 Close
               </button>
-      </>
-    )}
-  </>
-)}
+            </>
+          )}
+        </>
+      )}
     </div>
-      </div>
-    </div>
+  </div>
+</div>
   );
 }
 
