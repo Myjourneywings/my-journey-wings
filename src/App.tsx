@@ -471,12 +471,14 @@ function CaseDetails({
   onClose,
   onSaved,
     canEdit,
+  canAssign,
   canUploadDocuments,
 }: {
   selectedCase: CaseRow;
   onClose: () => void;
   onSaved: (updatedCase: CaseRow) => void;
   canEdit: boolean;
+  canAssign: boolean;
   canUploadDocuments: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -1108,6 +1110,7 @@ setDocumentUploaderNames(previous => ({
                 <option value="rejected">Rejected</option>
               </select>
             </p>
+            {canAssign && (
             <p>
   <strong>Assign to Agent:</strong>
   <select
@@ -1127,6 +1130,7 @@ setDocumentUploaderNames(previous => ({
     ))}
   </select>
 </p>
+            )}
           </>
         ) : (
           <>
@@ -2076,6 +2080,7 @@ module: ({
   profile?.role === 'super_admin' ||
   profile?.role === 'agent'
 }
+    canAssign={profile?.role === 'super_admin'}
     canUploadDocuments={
   profile?.role === 'super_admin' ||
   profile?.role === 'agent'
