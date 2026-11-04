@@ -1468,7 +1468,7 @@ Changed by: {activity.changed_by
                 </button>
               )}
 
-              <button type="button" onClick={onClose}>
+                <button type="button" onClick={onClose}>
                 Close
               </button>
             </>
@@ -1494,6 +1494,278 @@ function LoanVerificationSurvey({
 
   const [mobileNumber, setMobileNumber] = useState('');
   const [residenceAddress, setResidenceAddress] = useState('');
+const [reportNumber, setReportNumber] = useState('');
+const [surveyDate, setSurveyDate] = useState('');
+const [surveyTime, setSurveyTime] = useState('');
+const [dateOfBirth, setDateOfBirth] = useState('');
+const [alternateMobile, setAlternateMobile] = useState('');
+const [fatherName, setFatherName] = useState('');
+const [motherName, setMotherName] = useState('');
+const [spouseName, setSpouseName] = useState('');
+
+const [landmark, setLandmark] = useState('');
+const [personMet, setPersonMet] = useState('');
+const [relationshipWithApplicant, setRelationshipWithApplicant] = useState('');
+const [residenceType, setResidenceType] = useState('');
+const [ownershipStatus, setOwnershipStatus] = useState('');
+const [residingSince, setResidingSince] = useState('');
+const [neighbourRemarks, setNeighbourRemarks] = useState('');
+const [residenceRemarks, setResidenceRemarks] = useState('');
+
+const [bankName, setBankName] = useState('');
+const [branchName, setBranchName] = useState('');
+        
+const [latitude, setLatitude] = useState('');
+const [longitude, setLongitude] = useState('');
+const [gpsAddress, setGpsAddress] = useState('');
+const [visitRemarks, setVisitRemarks] = useState('');
+const [verificationResult, setVerificationResult] = useState('');
+
+const [surveySaving, setSurveySaving] = useState(false);
+const [surveyMessage, setSurveyMessage] = useState('');
+const [surveyError, setSurveyError] = useState('');
+
+const [surveyLoading, setSurveyLoading] = useState(true);
+const [surveyReadOnly, setSurveyReadOnly] = useState(false);
+
+useEffect(() => {
+  if (!supabase) {
+    setSurveyError('Supabase is not configured.');
+    setSurveyLoading(false);
+    return;
+  }
+
+  const client = supabase;
+  let cancelled = false;
+
+  const loadSurvey = async () => {
+    setSurveyLoading(true);
+    setSurveyError('');
+
+    const { data, error } = await client
+      .from('loan_verification_surveys')
+      .select('*')
+      .eq('case_id', selectedCase.id)
+      .maybeSingle();
+
+    if (cancelled) return;
+
+    if (error) {
+      setSurveyError(error.message);
+      setSurveyReadOnly(true);
+    } else if (data) {
+      setReportNumber(data.report_number ?? '');
+      setSurveyDate(data.survey_date ?? '');
+      setSurveyTime(data.survey_time?.slice(0, 5) ?? '');
+      setApplicantName(data.applicant_name ?? '');
+      setDateOfBirth(data.date_of_birth ?? '');
+      setMobileNumber(data.mobile_number ?? '');
+      setAlternateMobile(data.alternate_mobile ?? '');
+      setFatherName(data.father_name ?? '');
+      setMotherName(data.mother_name ?? '');
+      setSpouseName(data.spouse_name ?? '');
+      setResidenceAddress(data.residence_address ?? '');
+      setLandmark(data.landmark ?? '');
+      setPersonMet(data.person_met ?? '');
+      setRelationshipWithApplicant(data.relationship_with_applicant ?? '');
+      setResidenceType(data.residence_type ?? '');
+      setOwnershipStatus(data.ownership_status ?? '');
+      setResidingSince(data.residing_since ?? '');
+      setNeighbourRemarks(data.neighbour_remarks ?? '');
+      setResidenceRemarks(data.residence_remarks ?? '');
+      setBankName(data.bank_name ?? '');
+      setBranchName(data.branch_name ?? '');
+      setLatitude(data.latitude == null ? '' : String(data.latitude));
+      setLongitude(data.longitude == null ? '' : String(data.longitude));
+      setGpsAddress(data.gps_address ?? '');
+      setVisitRemarks(data.visit_remarks ?? '');
+      setVerificationResult(data.verification_result ?? '');
+      setSurveyReadOnly(data.survey_status !== 'draft');
+    } else {
+      setSurveyReadOnly(false);
+    }
+
+    setSurveyLoading(false);
+  };
+
+  void loadSurvey();
+
+  return () => {
+    cancelled = true;
+  };
+}, [selectedCase.id]);
+
+const saveSurveyDraft = async () => {
+  
+if (surveySaving || surveyLoading || surveyReadOnly) {
+  setSurveyError(
+    'Survey is loading, already saving, or no longer editable.'
+  );
+  return;
+}
+
+  if (!supabase) {
+    setSurveyError('Supabase is not configured.');
+    return;
+  }
+
+  setSurveySaving(true);
+  setSurveyError('');
+  setSurveyMessage('');
+
+  try {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      throw new Error('Please sign in again.');
+    }
+
+    const surveyData = {
+      case_id: selectedCase.id,
+      report_number: reportNumber || null,
+      survey_date: surveyDate || null,
+      survey_time: surveyTime || null,
+      applicant_name: applicantName,
+      date_of_birth: dateOfBirth || null,
+      mobile_number: mobileNumber || null,
+      alternate_mobile: alternateMobile || null,
+      father_name: fatherName || null,
+      mother_name: motherName || null,
+      spouse_name: spouseName || null,
+      residence_address: residenceAddress || null,
+      landmark: landmark || null,
+      person_met: personMet || null,
+      relationship_with_applicant: relationshipWithApplicant || null,
+      residence_type: residenceType || null,
+      ownership_status: ownershipStatus || null,
+      residing_since: residingSince || null,
+      neighbour_remarks: neighbourRemarks || null,
+      residence_remarks: residenceRemarks || null,
+      bank_name: bankName || null,
+      branch_name: branchName || null,
+      latitude: latitude.trim() === '' ? null : Number(latitude),
+      longitude: longitude.trim() === '' ? null : Number(longitude),
+      gps_address: gpsAddress || null,
+      visit_remarks: visitRemarks || null,
+      verification_result: verificationResult || null,
+      survey_status: 'draft',
+      surveyed_by: user.id,
+    };
+
+ 
+const { data: existingSurvey, error: lookupError } = await supabase
+  .from('loan_verification_surveys')
+  .select('id, survey_status')
+  .eq('case_id', selectedCase.id)
+  .maybeSingle();
+
+if (lookupError) {
+  throw lookupError;
+}
+
+if (existingSurvey && existingSurvey.survey_status !== 'draft') {
+  throw new Error(
+    'This survey has already been submitted or reviewed and cannot be saved as a draft.'
+  );
+}
+
+const { error: saveError } = existingSurvey
+  ? await supabase
+      .from('loan_verification_surveys')
+      .update(surveyData)
+      .eq('id', existingSurvey.id)
+  : await supabase
+      .from('loan_verification_surveys')
+      .insert(surveyData);
+
+
+    if (saveError) {
+      throw saveError;
+    }
+
+    setSurveyMessage('Survey draft saved successfully.');
+  } catch (error) {
+    setSurveyError(
+      error instanceof Error ? error.message : 'Unable to save survey.'
+    );
+  } finally {
+    setSurveySaving(false);
+  }
+};
+
+const submitSurveyForReview = async () => {
+  if (surveySaving || surveyLoading || surveyReadOnly) {
+    setSurveyError('Survey is not available for submission.');
+    return;
+  }
+
+  if (!supabase) {
+    setSurveyError('Supabase is not configured.');
+    return;
+  }
+
+  setSurveySaving(true);
+  setSurveyError('');
+  setSurveyMessage('');
+
+  try {
+    const client = supabase;
+
+    const { data: existingSurvey, error: lookupError } =
+      await client
+        .from('loan_verification_surveys')
+        .select('id, survey_status')
+        .eq('case_id', selectedCase.id)
+        .maybeSingle();
+
+    if (lookupError) throw lookupError;
+
+    if (!existingSurvey) {
+      throw new Error(
+        'Please save the survey draft before submitting.'
+      );
+    }
+
+    if (existingSurvey.survey_status !== 'draft') {
+      throw new Error('This survey is already submitted or reviewed.');
+    }
+
+    const { data: submittedSurvey, error: submitError } =
+      await client
+        .from('loan_verification_surveys')
+        .update({
+          survey_status: 'submitted',
+          submitted_at: new Date().toISOString(),
+        })
+        .eq('id', existingSurvey.id)
+        .eq('survey_status', 'draft')
+        .select('id')
+        .maybeSingle();
+
+    if (submitError) throw submitError;
+
+    if (!submittedSurvey) {
+      throw new Error(
+        'Survey could not be submitted. Please reload and try again.'
+      );
+    }
+
+    setSurveyReadOnly(true);
+    setSurveyMessage('Survey submitted for review successfully.');
+  } catch (error) {
+    setSurveyError(
+      error instanceof Error
+        ? error.message
+        : 'Unable to submit survey.'
+    );
+  } finally {
+    setSurveySaving(false);
+  }
+};
+
 
   return (
     <div>
@@ -1502,6 +1774,44 @@ function LoanVerificationSurvey({
       <p>
         <strong>Case ID:</strong> #{selectedCase.case_number}
       </p>
+
+<h4>Report Details</h4>
+
+<p>
+  <label>
+    Report Number
+    <input
+      type="text"
+      value={reportNumber}
+      onChange={(event) => setReportNumber(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Survey Date
+    <input
+      type="date"
+      value={surveyDate}
+      onChange={(event) => setSurveyDate(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Survey Time
+    <input
+      type="time"
+      value={surveyTime}
+      onChange={(event) => setSurveyTime(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
 
       <p>
         <label>
@@ -1516,6 +1826,68 @@ function LoanVerificationSurvey({
           />
         </label>
       </p>
+
+<h4>Applicant Personal Details</h4>
+
+<p>
+  <label>
+    Date of Birth
+    <input
+      type="date"
+      value={dateOfBirth}
+      onChange={(event) => setDateOfBirth(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Alternate Mobile Number
+    <input
+      type="tel"
+      value={alternateMobile}
+      onChange={(event) => setAlternateMobile(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Father's Name
+    <input
+      type="text"
+      value={fatherName}
+      onChange={(event) => setFatherName(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Mother's Name
+    <input
+      type="text"
+      value={motherName}
+      onChange={(event) => setMotherName(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Spouse's Name
+    <input
+      type="text"
+      value={spouseName}
+      onChange={(event) => setSpouseName(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
 
       <p>
         <label>
@@ -1543,6 +1915,276 @@ function LoanVerificationSurvey({
           />
         </label>
       </p>
+      
+<h4>Residence Verification Details</h4>
+
+<p>
+  <label>
+    Landmark
+    <input
+      type="text"
+      value={landmark}
+      onChange={(event) => setLandmark(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Person Met During Visit
+    <input
+      type="text"
+      value={personMet}
+      onChange={(event) => setPersonMet(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Relationship with Applicant
+    <input
+      type="text"
+      value={relationshipWithApplicant}
+      onChange={(event) =>
+        setRelationshipWithApplicant(event.target.value)
+      }
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Residence Type
+    <select
+      value={residenceType}
+      onChange={(event) => setResidenceType(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    >
+      <option value="">Select Residence Type</option>
+      <option value="house">House</option>
+      <option value="flat">Flat / Apartment</option>
+      <option value="other">Other</option>
+    </select>
+  </label>
+</p>
+
+<p>
+  <label>
+    Ownership Status
+    <select
+      value={ownershipStatus}
+      onChange={(event) => setOwnershipStatus(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    >
+      <option value="">Select Ownership Status</option>
+      <option value="owned">Owned</option>
+      <option value="rented">Rented</option>
+      <option value="family">Family Property</option>
+      <option value="other">Other</option>
+    </select>
+  </label>
+</p>
+
+<p>
+  <label>
+    Residing Since
+    <input
+      type="text"
+      value={residingSince}
+      onChange={(event) => setResidingSince(event.target.value)}
+      placeholder="Example: 5 years"
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Neighbour Remarks
+    <textarea
+      value={neighbourRemarks}
+      onChange={(event) => setNeighbourRemarks(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Residence Remarks
+    <textarea
+      value={residenceRemarks}
+      onChange={(event) => setResidenceRemarks(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<h4>Bank Details</h4>
+
+<p>
+  <label>
+    Bank Name
+    <input
+      type="text"
+      value={bankName}
+      onChange={(event) => setBankName(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Branch Name
+    <input
+      type="text"
+      value={branchName}
+      onChange={(event) => setBranchName(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<h4>GPS Location and Visit Details</h4>
+
+<p>
+  <label>
+    Latitude
+    <input
+      type="number"
+      step="any"
+      value={latitude}
+      onChange={(event) => setLatitude(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Longitude
+    <input
+      type="number"
+      step="any"
+      value={longitude}
+      onChange={(event) => setLongitude(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    GPS Address
+    <textarea
+      value={gpsAddress}
+      onChange={(event) => setGpsAddress(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Visit Remarks
+    <textarea
+      value={visitRemarks}
+      onChange={(event) => setVisitRemarks(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    Verification Result
+    <select
+      value={verificationResult}
+      onChange={(event) => setVerificationResult(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    >
+      <option value="">Select Verification Result</option>
+      <option value="positive">Positive</option>
+      <option value="negative">Negative</option>
+      <option value="refer">Refer</option>
+    </select>
+  </label>
+</p>
+
+{/* Survey Save Messages */}
+
+{surveyError && (
+  <p style={{ color: 'red' }}>
+    {surveyError}
+  </p>
+)}
+
+{surveyMessage && (
+  <p style={{ color: 'green' }}>
+    {surveyMessage}
+  </p>
+)}
+
+{/* Save Draft Button */}
+
+{surveyReadOnly && (
+  <p style={{ color: '#92400e' }}>
+    This survey is no longer a draft. Changes cannot be saved.
+  </p>
+)}
+
+<div style={{ marginTop: 20 }}>
+  <button
+    type="button"
+    disabled={surveySaving || surveyLoading || surveyReadOnly}
+    onClick={saveSurveyDraft}
+    style={{
+      padding: '12px 24px',
+      backgroundColor: '#2563eb',
+      color: 'white',
+      border: 'none',
+      borderRadius: 6,
+      cursor: surveySaving ? 'not-allowed' : 'pointer',
+    }}
+  >
+    
+{surveyLoading
+  ? 'Loading Survey...'
+  : surveyReadOnly
+    ? 'Survey Submitted / Locked'
+    : surveySaving
+      ? 'Saving Draft...'
+      : 'Save Draft'}
+
+  </button>
+  
+<button
+  type="button"
+  disabled={surveySaving || surveyLoading || surveyReadOnly}
+  onClick={submitSurveyForReview}
+  style={{
+    padding: '12px 24px',
+    marginLeft: 10,
+    backgroundColor: '#15803d',
+    color: 'white',
+    border: 'none',
+    borderRadius: 6,
+    cursor:
+      surveySaving || surveyLoading || surveyReadOnly
+        ? 'not-allowed'
+        : 'pointer',
+  }}
+>
+  Submit for Review
+</button>
+
+</div>
+
     </div>
   );
 }
