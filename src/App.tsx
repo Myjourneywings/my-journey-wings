@@ -2072,7 +2072,10 @@ module: ({
   <CaseDetails
     selectedCase={selectedCase}
     onClose={() => setSelectedCase(null)}
-    canEdit={profile?.role === 'super_admin'}
+    canEdit={
+  profile?.role === 'super_admin' ||
+  profile?.role === 'agent'
+}
     canUploadDocuments={
   profile?.role === 'super_admin' ||
   profile?.role === 'agent'
