@@ -482,6 +482,9 @@ function CaseDetails({
   canUploadDocuments: boolean;
 }) {
   const [editing, setEditing] = useState(false);
+  
+const [surveyOpen, setSurveyOpen] = useState(false);
+
   const [customerName, setCustomerName] =
     useState(selectedCase.customer_name);
   const [referenceNumber, setReferenceNumber] =
@@ -1063,8 +1066,27 @@ setDocumentUploaderNames(previous => ({
           overflowY: 'auto'
         }}
       >
-        <h2>Case Details</h2>
+        
+<h2>
+  {surveyOpen ? 'Loan Verification Site Survey' : 'Case Details'}
+</h2>
 
+{surveyOpen && (
+  <button
+    type="button"
+    onClick={() => setSurveyOpen(false)}
+    style={{ marginBottom: 16 }}
+  >
+    ← Back to Case Details
+  </button>
+)}
+
+{surveyOpen && (
+  <LoanVerificationSurvey selectedCase={selectedCase} />
+)}
+
+{!surveyOpen && (
+  <>
         <p>
           <strong>Case ID:</strong>
           {' '}#{selectedCase.case_number}
@@ -1427,6 +1449,16 @@ Changed by: {activity.changed_by
             </>
           ) : (
             <>
+              
+{selectedCase.module === 'loan_verification' && (
+  <button
+    type="button"
+    onClick={() => setSurveyOpen(true)}
+  >
+    Site Survey
+  </button>
+)}
+
               {canEdit && (
                 <button
                   type="button"
@@ -1441,8 +1473,76 @@ Changed by: {activity.changed_by
               </button>
             </>
           )}
+            </>
+)}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* LOAN VERIFICATION SITE SURVEY */
+
+function LoanVerificationSurvey({
+  selectedCase,
+}: {
+  selectedCase: CaseRow;
+}) {
+  const [applicantName, setApplicantName] = useState(
+    selectedCase.customer_name
+  );
+
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [residenceAddress, setResidenceAddress] = useState('');
+
+  return (
+    <div>
+      <h3>Loan Verification Site Survey</h3>
+
+      <p>
+        <strong>Case ID:</strong> #{selectedCase.case_number}
+      </p>
+
+      <p>
+        <label>
+          Applicant Name
+          <input
+            type="text"
+            value={applicantName}
+            onChange={(event) =>
+              setApplicantName(event.target.value)
+            }
+            style={{ width: '100%', padding: 10 }}
+          />
+        </label>
+      </p>
+
+      <p>
+        <label>
+          Mobile Number
+          <input
+            type="tel"
+            value={mobileNumber}
+            onChange={(event) =>
+              setMobileNumber(event.target.value)
+            }
+            style={{ width: '100%', padding: 10 }}
+          />
+        </label>
+      </p>
+
+      <p>
+        <label>
+          Residence Address
+          <textarea
+            value={residenceAddress}
+            onChange={(event) =>
+              setResidenceAddress(event.target.value)
+            }
+            style={{ width: '100%', padding: 10 }}
+          />
+        </label>
+      </p>
     </div>
   );
 }
