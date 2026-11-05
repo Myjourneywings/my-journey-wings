@@ -2173,18 +2173,22 @@ const downloadSurveyPDF = async () => {
   field('Review Remarks', reviewRemarks);
 // Add uploaded site photographs to the PDF
 if (supabase && surveyPhotos.length > 0) {
+
+  
+  // Start photographs on a separate page.
   pdf.addPage();
   pageHeader();
-  y = 38;
 
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(13);
+  pdf.setFontSize(14);
   pdf.setTextColor(...navy);
-  pdf.text('SITE PHOTOGRAPHS', margin, y);
-  y += 12;
+  pdf.text('PHOTOS', pageWidth / 2, 39, { align: 'center' });
 
-  const photoWidth = (contentWidth - 8) / 2;
+  const photoGap = 5;
+  const photoWidth = (contentWidth - photoGap * 2) / 3;
   const photoHeight = 65;
+  const photoRowHeight = 75;
+  const photoStartY = 49;
 
   for (let i = 0; i < surveyPhotos.length; i++) {
     const photo = surveyPhotos[i];
@@ -2195,6 +2199,7 @@ if (supabase && surveyPhotos.length > 0) {
         .download(photo.file_path);
 
       if (error) throw error;
+      if (!data) throw new Error('Photograph data is missing.');
 
       const imageUrl = URL.createObjectURL(data);
 
@@ -2210,31 +2215,72 @@ if (supabase && surveyPhotos.length > 0) {
         const context = canvas.getContext('2d');
         if (!context) throw new Error('Unable to process photograph.');
 
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
         context.drawImage(image, 0, 0);
 
         const imageData = canvas.toDataURL('image/jpeg', 0.85);
 
-        if (y + photoHeight + 16 > bottomLimit) {
+        const position = i % 9;
+
+        if (i > 0 && position === 0) {
           pdf.addPage();
           pageHeader();
-          y = 38;
+
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(14);
+          pdf.setTextColor(...navy);
+          pdf.text('PHOTOS', pageWidth / 2, 39, {
+            align: 'center'
+          });
         }
 
-        const column = i % 2;
-        const x = margin + column * (photoWidth + 8);
+        const column = position % 3;
+        const row = Math.floor(position / 3);
 
-        pdf.addImage(imageData, 'JPEG', x, y, photoWidth, photoHeight);
+        const x = margin + column * (photoWidth + photoGap);
+        const photoY = photoStartY + row * photoRowHeight;
+
+        // Preserve the photograph's aspect ratio.
+        const scale = Math.min(
+          photoWidth / image.naturalWidth,
+          photoHeight / image.naturalHeight
+        );
+
+        const displayWidth = image.naturalWidth * scale;
+        const displayHeight = image.naturalHeight * scale;
+
+        const imageX = x + (photoWidth - displayWidth) / 2;
+        const imageY = photoY + (photoHeight - displayHeight) / 2;
+
+        pdf.setDrawColor(210, 210, 210);
+        pdf.rect(x, photoY, photoWidth, photoHeight);
+
+        pdf.addImage(
+          imageData,
+          'JPEG',
+          imageX,
+          imageY,
+          displayWidth,
+          displayHeight
+        );
 
         pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(8);
+        pdf.setFontSize(7);
         pdf.setTextColor(...gray);
 
         const caption = photo.photo_caption || `Photograph ${i + 1}`;
-        pdf.text(caption.substring(0, 35), x, y + photoHeight + 5);
 
-        if (column === 1 || i === surveyPhotos.length - 1) {
-          y += photoHeight + 15;
-        }
+        const captionLines = pdf.splitTextToSize(
+          caption,
+          photoWidth - 2
+        );
+
+        pdf.text(
+          captionLines.slice(0, 2),
+          x + 1,
+          photoY + photoHeight + 3
+        );
       } finally {
         URL.revokeObjectURL(imageUrl);
       }
@@ -2243,6 +2289,7 @@ if (supabase && surveyPhotos.length > 0) {
     }
   }
 }
+
   const totalPages = pdf.getNumberOfPages();
   for (let page = 1; page <= totalPages; page++) {
     pdf.setPage(page);
