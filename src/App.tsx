@@ -1082,7 +1082,12 @@ setDocumentUploaderNames(previous => ({
 )}
 
 {surveyOpen && (
-  <LoanVerificationSurvey selectedCase={selectedCase} />
+  
+<LoanVerificationSurvey
+  selectedCase={selectedCase}
+  canReview={canEdit && canAssign}
+/>
+
 )}
 
 {!surveyOpen && (
@@ -1485,11 +1490,15 @@ Changed by: {activity.changed_by
 
 /* LOAN VERIFICATION SITE SURVEY */
 
+
 function LoanVerificationSurvey({
   selectedCase,
+  canReview,
 }: {
   selectedCase: CaseRow;
+  canReview: boolean;
 }) {
+
   const [applicantName, setApplicantName] = useState(
     selectedCase.customer_name
   );
@@ -1529,6 +1538,10 @@ const [surveyError, setSurveyError] = useState('');
 
 const [surveyLoading, setSurveyLoading] = useState(true);
 const [surveyReadOnly, setSurveyReadOnly] = useState(false);
+
+const [reviewRemarks, setReviewRemarks] = useState('');
+const [surveyStatus, setSurveyStatus] = useState('draft');
+const [reviewSaving, setReviewSaving] = useState(false);
 
 useEffect(() => {
   if (!supabase) {
@@ -1582,6 +1595,10 @@ useEffect(() => {
       setGpsAddress(data.gps_address ?? '');
       setVisitRemarks(data.visit_remarks ?? '');
       setVerificationResult(data.verification_result ?? '');
+      
+setSurveyStatus(data.survey_status ?? 'draft');
+setReviewRemarks(data.reviewer_remarks ?? '');
+
       setSurveyReadOnly(data.survey_status !== 'draft');
     } else {
       setSurveyReadOnly(false);
@@ -1755,8 +1772,11 @@ const submitSurveyForReview = async () => {
       );
     }
 
-    setSurveyReadOnly(true);
-    setSurveyMessage('Survey submitted for review successfully.');
+
+setSurveyStatus('submitted');
+setSurveyReadOnly(true);
+setSurveyMessage('Survey submitted for review successfully.');
+
   } catch (error) {
     setSurveyError(
       error instanceof Error
@@ -1768,6 +1788,73 @@ const submitSurveyForReview = async () => {
   }
 };
 
+
+const reviewSurvey = async (
+  decision: 'approved' | 'rejected'
+) => {
+  if (!canReview || surveyStatus !== 'submitted' || reviewSaving) {
+    setSurveyError('Survey is not available for review.');
+    return;
+  }
+
+  if (decision === 'rejected' && !reviewRemarks.trim()) {
+    setSurveyError('Please enter a reason for rejection.');
+    return;
+  }
+
+if (!supabase) {
+  setSurveyError('Supabase is not configured.');
+  return;
+}
+
+  setReviewSaving(true);
+  setSurveyError('');
+  setSurveyMessage('');
+
+  try {
+    const { data: { user }, error: userError } =
+      await supabase.auth.getUser();
+
+    if (userError || !user) {
+      throw new Error('Please sign in again.');
+    }
+
+    const { data, error } = await supabase
+      .from('loan_verification_surveys')
+      .update({
+        survey_status: decision,
+        reviewed_by: user.id,
+        reviewed_at: new Date().toISOString(),
+        reviewer_remarks: reviewRemarks.trim() || null
+      })
+      .eq('case_id', selectedCase.id)
+      .eq('survey_status', 'submitted')
+      .select('survey_status')
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data) {
+      throw new Error('Survey could not be reviewed. Please refresh.');
+    }
+
+    setSurveyStatus(decision);
+    setSurveyReadOnly(true);
+    setSurveyMessage(
+      decision === 'approved'
+        ? 'Survey approved successfully.'
+        : 'Survey rejected successfully.'
+    );
+  } catch (error) {
+    setSurveyError(
+      error instanceof Error
+        ? error.message
+        : 'Unable to review survey.'
+    );
+  } finally {
+    setReviewSaving(false);
+  }
+};
 
   return (
     <div>
@@ -2186,6 +2273,59 @@ const submitSurveyForReview = async () => {
 </button>
 
 </div>
+
+{canReview && surveyStatus === 'submitted' && (
+  <section style={{ marginTop: 24 }}>
+    <h3>Super Admin Review</h3>
+
+    <label>
+      Review Remarks
+      <textarea
+        value={reviewRemarks}
+        onChange={(event) =>
+          setReviewRemarks(event.target.value)
+        }
+        rows={4}
+        style={{ width: '100%', padding: 10, marginTop: 8 }}
+        placeholder="Enter approval comments or rejection reason"
+      />
+    </label>
+
+    <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+      <button
+        type="button"
+        disabled={reviewSaving}
+        onClick={() => void reviewSurvey('approved')}
+        style={{
+          background: '#15803d',
+          color: '#fff',
+          padding: '12px 18px',
+          border: 'none',
+          borderRadius: 8,
+          cursor: 'pointer'
+        }}
+      >
+        {reviewSaving ? 'Processing...' : 'Approve Survey'}
+      </button>
+
+      <button
+        type="button"
+        disabled={reviewSaving}
+        onClick={() => void reviewSurvey('rejected')}
+        style={{
+          background: '#b91c1c',
+          color: '#fff',
+          padding: '12px 18px',
+          border: 'none',
+          borderRadius: 8,
+          cursor: 'pointer'
+        }}
+      >
+        Reject Survey
+      </button>
+    </div>
+  </section>
+)}
 
     </div>
   );
