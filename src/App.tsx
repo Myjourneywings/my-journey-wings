@@ -2242,16 +2242,22 @@ if (!supabase) {
     }}
   >
     
+
 {surveyLoading
   ? 'Loading Survey...'
+  : surveyStatus === 'approved'
+  ? 'Survey Approved / Locked'
+  : surveyStatus === 'rejected'
+  ? 'Survey Rejected / Locked'
   : surveyReadOnly
-    ? 'Survey Submitted / Locked'
-    : surveySaving
-      ? 'Saving Draft...'
-      : 'Save Draft'}
+  ? 'Survey Submitted / Locked'
+  : surveySaving
+  ? 'Saving Draft...'
+  : 'Save Draft'}
+
 
   </button>
-  
+ {surveyStatus === 'draft' && ( 
 <button
   type="button"
   disabled={surveySaving || surveyLoading || surveyReadOnly}
@@ -2271,7 +2277,7 @@ if (!supabase) {
 >
   Submit for Review
 </button>
-
+)}
 </div>
 
 {canReview && surveyStatus === 'submitted' && (
