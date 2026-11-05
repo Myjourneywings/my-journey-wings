@@ -2431,7 +2431,7 @@ const downloadSurveyPDF = () => {
 {(surveyStatus === 'approved' || surveyStatus === 'rejected') && (
   <button
     type="button"
-    onClick={downloadSurveyPdf}
+  onClick={downloadSurveyPDF}
     style={{
       marginTop: 20,
       padding: '12px 24px',
