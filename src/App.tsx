@@ -2033,7 +2033,7 @@ if (!supabase) {
     setReviewSaving(false);
   }
 };
-const downloadSurveyPDF = () => {
+const downloadSurveyPDF = async () => {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
@@ -2171,7 +2171,78 @@ const downloadSurveyPDF = () => {
     ? new Date(reviewedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
     : 'Not reviewed');
   field('Review Remarks', reviewRemarks);
+// Add uploaded site photographs to the PDF
+if (supabase && surveyPhotos.length > 0) {
+  pdf.addPage();
+  pageHeader();
+  y = 38;
 
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(13);
+  pdf.setTextColor(...navy);
+  pdf.text('SITE PHOTOGRAPHS', margin, y);
+  y += 12;
+
+  const photoWidth = (contentWidth - 8) / 2;
+  const photoHeight = 65;
+
+  for (let i = 0; i < surveyPhotos.length; i++) {
+    const photo = surveyPhotos[i];
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('survey-photos')
+        .download(photo.file_path);
+
+      if (error) throw error;
+
+      const imageUrl = URL.createObjectURL(data);
+
+      try {
+        const image = new Image();
+        image.src = imageUrl;
+        await image.decode();
+
+        const canvas = document.createElement('canvas');
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Unable to process photograph.');
+
+        context.drawImage(image, 0, 0);
+
+        const imageData = canvas.toDataURL('image/jpeg', 0.85);
+
+        if (y + photoHeight + 16 > bottomLimit) {
+          pdf.addPage();
+          pageHeader();
+          y = 38;
+        }
+
+        const column = i % 2;
+        const x = margin + column * (photoWidth + 8);
+
+        pdf.addImage(imageData, 'JPEG', x, y, photoWidth, photoHeight);
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8);
+        pdf.setTextColor(...gray);
+
+        const caption = photo.photo_caption || `Photograph ${i + 1}`;
+        pdf.text(caption.substring(0, 35), x, y + photoHeight + 5);
+
+        if (column === 1 || i === surveyPhotos.length - 1) {
+          y += photoHeight + 15;
+        }
+      } finally {
+        URL.revokeObjectURL(imageUrl);
+      }
+    } catch (error) {
+      console.error('Unable to add photograph to PDF:', error);
+    }
+  }
+}
   const totalPages = pdf.getNumberOfPages();
   for (let page = 1; page <= totalPages; page++) {
     pdf.setPage(page);
