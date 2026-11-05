@@ -4,7 +4,7 @@ import type { FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-
+import { jsPDF } from 'jspdf';
 import {
   LayoutDashboard,
   FileCheck2,
@@ -1861,7 +1861,122 @@ if (!supabase) {
     setReviewSaving(false);
   }
 };
+const downloadSurveyPDF = () => {
+  const pdf = new jsPDF();
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const margin = 15;
+  const contentWidth = pageWidth - margin * 2;
+  let y = 20;
 
+  const ensureSpace = (height: number) => {
+    if (y + height > pdf.internal.pageSize.getHeight() - 20) {
+      pdf.addPage();
+      y = 20;
+    }
+  };
+
+  const section = (heading: string) => {
+    ensureSpace(15);
+    y += 5;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(12);
+    pdf.text(heading, margin, y);
+    y += 8;
+  };
+
+  const field = (label: string, value: unknown) => {
+    const text = String(value ?? '').trim() || 'Not provided';
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+
+    const lines = pdf.splitTextToSize(
+      `${label}: ${text}`,
+      contentWidth
+    ) as string[];
+
+    ensureSpace(lines.length * 5 + 3);
+    pdf.text(lines, margin, y);
+    y += lines.length * 5 + 3;
+  };
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(17);
+  pdf.text('MJW TRADING', pageWidth / 2, y, {
+    align: 'center'
+  });
+
+  y += 10;
+  pdf.setFontSize(12);
+  pdf.text('LOAN VERIFICATION SITE SURVEY REPORT', pageWidth / 2, y, {
+    align: 'center'
+  });
+
+  y += 10;
+
+  section('Report Information');
+  field('Case ID', selectedCase.case_number);
+  field('Report Number', reportNumber);
+  field('Survey Date', surveyDate);
+  field('Survey Time', surveyTime);
+
+  section('Applicant Information');
+  field('Applicant Name', applicantName);
+  field('Date of Birth', dateOfBirth);
+  field('Mobile Number', mobileNumber);
+  field('Alternate Mobile', alternateMobile);
+  field('Father Name', fatherName);
+  field('Mother Name', motherName);
+  field('Spouse Name', spouseName);
+
+  section('Residence Verification');
+  field('Residence Address', residenceAddress);
+  field('Landmark', landmark);
+  field('Person Met', personMet);
+  field('Relationship', relationshipWithApplicant);
+  field('Residence Type', residenceType);
+  field('Ownership Status', ownershipStatus);
+  field('Residing Since', residingSince);
+  field('Neighbour Remarks', neighbourRemarks);
+  field('Residence Remarks', residenceRemarks);
+
+  section('Bank Information');
+  field('Bank Name', bankName);
+  field('Branch Name', branchName);
+
+  section('GPS Location and Visit Details');
+  field('Latitude', latitude);
+  field('Longitude', longitude);
+  field('GPS Address', gpsAddress);
+  field('Visit Remarks', visitRemarks);
+  field('Verification Result', verificationResult);
+
+  section('Survey Review Details');
+  field('Review Status', surveyStatus.toUpperCase());
+  field('Reviewed By', reviewedBy ? 'Super Admin' : 'Not reviewed');
+  field(
+    'Review Date',
+    reviewedAt
+      ? new Date(reviewedAt).toLocaleString('en-IN')
+      : 'Not reviewed'
+  );
+  field('Review Remarks', reviewRemarks);
+
+  const totalPages = pdf.getNumberOfPages();
+
+  for (let page = 1; page <= totalPages; page++) {
+    pdf.setPage(page);
+    pdf.setFontSize(9);
+    pdf.setTextColor(100);
+    pdf.text(
+      `MJW Trading | Page ${page} of ${totalPages}`,
+      pageWidth / 2,
+      pdf.internal.pageSize.getHeight() - 10,
+      { align: 'center' }
+    );
+  }
+
+  pdf.save(`MJW-Loan-Verification-${selectedCase.case_number}.pdf`);
+};
   return (
     <div>
       <h3>Loan Verification Site Survey</h3>
@@ -2313,7 +2428,24 @@ if (!supabase) {
     </p>
   </section>
 )}
-
+{(surveyStatus === 'approved' || surveyStatus === 'rejected') && (
+  <button
+    type="button"
+    onClick={downloadSurveyPdf}
+    style={{
+      marginTop: 20,
+      padding: '12px 24px',
+      backgroundColor: '#2563eb',
+      color: 'white',
+      border: 'none',
+      borderRadius: 6,
+      cursor: 'pointer',
+      fontWeight: 600
+    }}
+  >
+    Download PDF Report
+  </button>
+)}
 {canReview && surveyStatus === 'submitted' && (
   <section style={{ marginTop: 24 }}>
     <h3>Super Admin Review</h3>
