@@ -1554,7 +1554,7 @@ const [surveyPhotos, setSurveyPhotos] = useState<
     uploaded_at: string;
   }[]
 >([]);
-
+const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
 const [photoUploading, setPhotoUploading] = useState(false);
 const [photoLoading, setPhotoLoading] = useState(false);
 const [photoError, setPhotoError] = useState('');
@@ -1579,6 +1579,20 @@ const loadSurveyPhotos = async () => {
     if (error) throw error;
 
     setSurveyPhotos(data ?? []);
+    const signedUrls: Record<string, string> = {};
+
+for (const photo of data ?? []) {
+  const { data: signedData, error: signedError } =
+    await supabase.storage
+      .from('survey-photos')
+      .createSignedUrl(photo.file_path, 3600);
+
+  if (!signedError && signedData?.signedUrl) {
+    signedUrls[photo.id] = signedData.signedUrl;
+  }
+}
+
+setPhotoUrls(signedUrls);
   } catch (error) {
     setPhotoError(
       error instanceof Error
@@ -2220,8 +2234,48 @@ const downloadSurveyPDF = () => {
   )}
 
   {surveyPhotos.length > 0 && (
+  <div>
     <p>{surveyPhotos.length} photograph(s) recorded.</p>
-  )}
+
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+        gap: 12,
+        marginTop: 12
+      }}
+    >
+      {surveyPhotos.map((photo) => (
+        <div key={photo.id}>
+          {photoUrls[photo.id] ? (
+            <a
+              href={photoUrls[photo.id]}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="View full-size photograph"
+            >
+              <img
+                src={photoUrls[photo.id]}
+                alt={photo.photo_caption || 'Survey photograph'}
+                style={{
+                  width: '100%',
+                  height: 120,
+                  objectFit: 'cover',
+                  borderRadius: 8,
+                  border: '1px solid #ddd'
+                }}
+              />
+            </a>
+          ) : (
+            <p>Preview unavailable</p>
+          )}
+
+          <small>{photo.photo_caption || 'Survey photograph'}</small>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
   {['approved', 'rejected'].includes(surveyStatus) && (
     <p>Photograph uploads are locked after final review.</p>
