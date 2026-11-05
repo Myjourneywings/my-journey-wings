@@ -1862,56 +1862,98 @@ if (!supabase) {
   }
 };
 const downloadSurveyPDF = () => {
-  const pdf = new jsPDF();
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = pdf.internal.pageSize.getWidth();
-  const margin = 15;
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 14;
   const contentWidth = pageWidth - margin * 2;
-  let y = 20;
+  const bottomLimit = pageHeight - 20;
+  const labelWidth = 54;
+  let y = 0;
+
+  const navy: [number, number, number] = [29, 67, 105];
+  const pale: [number, number, number] = [237, 244, 250];
+  const gray: [number, number, number] = [72, 85, 99];
+
+  const pageHeader = () => {
+    pdf.setFillColor(...navy);
+    pdf.rect(0, 0, pageWidth, 27, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(17);
+    pdf.text('MJW TRADING', margin, 12);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    pdf.text('LOAN VERIFICATION SITE SURVEY REPORT', margin, 20);
+    pdf.setTextColor(30, 41, 59);
+    y = 34;
+  };
+
+  const newPage = () => {
+    pdf.addPage();
+    pageHeader();
+  };
 
   const ensureSpace = (height: number) => {
-    if (y + height > pdf.internal.pageSize.getHeight() - 20) {
-      pdf.addPage();
-      y = 20;
-    }
+    if (y + height > bottomLimit) newPage();
+  };
+
+  const formatValue = (value: unknown) => {
+    const result = String(value ?? '').trim();
+    return result || 'Not provided';
   };
 
   const section = (heading: string) => {
-    ensureSpace(15);
-    y += 5;
+    ensureSpace(17);
+    y += 3;
+    pdf.setFillColor(...pale);
+    pdf.roundedRect(margin, y, contentWidth, 9, 1.5, 1.5, 'F');
+    pdf.setTextColor(...navy);
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(12);
-    pdf.text(heading, margin, y);
-    y += 8;
+    pdf.setFontSize(10);
+    pdf.text(heading.toUpperCase(), margin + 4, y + 6);
+    pdf.setTextColor(30, 41, 59);
+    y += 12;
   };
 
   const field = (label: string, value: unknown) => {
-    const text = String(value ?? '').trim() || 'Not provided';
+    pdf.setFontSize(9);
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(10);
-
-    const lines = pdf.splitTextToSize(
-      `${label}: ${text}`,
-      contentWidth
+    const valueLines = pdf.splitTextToSize(
+      formatValue(value), contentWidth - labelWidth - 9
     ) as string[];
+    const labelLines = pdf.splitTextToSize(label, labelWidth - 8) as string[];
+    const height = Math.max(10, Math.max(valueLines.length, labelLines.length) * 4.6 + 5);
+    ensureSpace(height);
 
-    ensureSpace(lines.length * 5 + 3);
-    pdf.text(lines, margin, y);
-    y += lines.length * 5 + 3;
+    pdf.setDrawColor(216, 225, 235);
+    pdf.setFillColor(248, 250, 252);
+    pdf.rect(margin, y, labelWidth, height, 'FD');
+    pdf.rect(margin + labelWidth, y, contentWidth - labelWidth, height, 'S');
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(...gray);
+    pdf.text(labelLines, margin + 3, y + 6);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(30, 41, 59);
+    pdf.text(valueLines, margin + labelWidth + 3, y + 6);
+    y += height;
   };
 
+  pageHeader();
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(17);
-  pdf.text('MJW TRADING', pageWidth / 2, y, {
-    align: 'center'
-  });
-
-  y += 10;
   pdf.setFontSize(12);
-  pdf.text('LOAN VERIFICATION SITE SURVEY REPORT', pageWidth / 2, y, {
-    align: 'center'
-  });
-
+  pdf.setTextColor(...navy);
+  pdf.text('CASE #' + selectedCase.case_number, margin, y + 2);
+  pdf.setFontSize(10);
+  const status = surveyStatus.toUpperCase();
+  pdf.text('REVIEW: ' + status, pageWidth - margin, y + 2, { align: 'right' });
   y += 10;
+
+  section('Verification Summary');
+  field('Applicant', applicantName);
+  field('Verification Result', verificationResult);
+  field('Review Status', status);
+  field('Bank', bankName);
 
   section('Report Information');
   field('Case ID', selectedCase.case_number);
@@ -1951,31 +1993,28 @@ const downloadSurveyPDF = () => {
   field('Verification Result', verificationResult);
 
   section('Survey Review Details');
-  field('Review Status', surveyStatus.toUpperCase());
+  field('Review Status', status);
   field('Reviewed By', reviewedBy ? 'Super Admin' : 'Not reviewed');
-  field(
-    'Review Date',
-    reviewedAt
-      ? new Date(reviewedAt).toLocaleString('en-IN')
-      : 'Not reviewed'
-  );
+  field('Review Date', reviewedAt
+    ? new Date(reviewedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+    : 'Not reviewed');
   field('Review Remarks', reviewRemarks);
 
   const totalPages = pdf.getNumberOfPages();
-
   for (let page = 1; page <= totalPages; page++) {
     pdf.setPage(page);
-    pdf.setFontSize(9);
-    pdf.setTextColor(100);
-    pdf.text(
-      `MJW Trading | Page ${page} of ${totalPages}`,
-      pageWidth / 2,
-      pdf.internal.pageSize.getHeight() - 10,
-      { align: 'center' }
-    );
+    pdf.setDrawColor(216, 225, 235);
+    pdf.line(margin, pageHeight - 16, pageWidth - margin, pageHeight - 16);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(...gray);
+    pdf.text('MJW Trading | Loan Verification Site Survey', margin, pageHeight - 10);
+    pdf.text('Page ' + page + ' of ' + totalPages, pageWidth - margin, pageHeight - 10, {
+      align: 'right'
+    });
   }
 
-  pdf.save(`MJW-Loan-Verification-${selectedCase.case_number}.pdf`);
+  pdf.save('MJW-Loan-Verification-' + selectedCase.case_number + '.pdf');
 };
   return (
     <div>
