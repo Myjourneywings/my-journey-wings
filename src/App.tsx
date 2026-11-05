@@ -1523,6 +1523,11 @@ const [residingSince, setResidingSince] = useState('');
 const [neighbourRemarks, setNeighbourRemarks] = useState('');
 const [residenceRemarks, setResidenceRemarks] = useState('');
 
+const [eastSide, setEastSide] = useState('');
+const [westSide, setWestSide] = useState('');
+const [northSide, setNorthSide] = useState('');
+const [southSide, setSouthSide] = useState('');
+
 const [bankName, setBankName] = useState('');
 const [branchName, setBranchName] = useState('');
         
@@ -1763,6 +1768,12 @@ useEffect(() => {
       setResidingSince(data.residing_since ?? '');
       setNeighbourRemarks(data.neighbour_remarks ?? '');
       setResidenceRemarks(data.residence_remarks ?? '');
+      
+setEastSide(data.east_side ?? '');
+setWestSide(data.west_side ?? '');
+setNorthSide(data.north_side ?? '');
+setSouthSide(data.south_side ?? '');
+
       setBankName(data.bank_name ?? '');
       setBranchName(data.branch_name ?? '');
       setLatitude(data.latitude == null ? '' : String(data.latitude));
@@ -1841,6 +1852,12 @@ if (surveySaving || surveyLoading || surveyReadOnly) {
       residing_since: residingSince || null,
       neighbour_remarks: neighbourRemarks || null,
       residence_remarks: residenceRemarks || null,
+      
+east_side: eastSide || null,
+west_side: westSide || null,
+north_side: northSide || null,
+south_side: southSide || null,
+
       bank_name: bankName || null,
       branch_name: branchName || null,
       latitude: latitude.trim() === '' ? null : Number(latitude),
@@ -2152,7 +2169,10 @@ const downloadSurveyPDF = async () => {
   field('Residing Since', residingSince);
   field('Neighbour Remarks', neighbourRemarks);
   field('Residence Remarks', residenceRemarks);
-
+field('East Side of House', eastSide);
+field('West Side of House', westSide);
+field('North Side of House', northSide);
+field('South Side of House', southSide);
   section('Bank Information');
   field('Bank Name', bankName);
   field('Branch Name', branchName);
@@ -2644,6 +2664,60 @@ if (supabase && surveyPhotos.length > 0) {
     <textarea
       value={residenceRemarks}
       onChange={(event) => setResidenceRemarks(event.target.value)}
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<h4>House Surroundings / Four-Side Boundary Details</h4>
+
+<p>
+  <label>
+    East Side of House (पूर्व)
+    <input
+      type="text"
+      value={eastSide}
+      onChange={(event) => setEastSide(event.target.value)}
+      placeholder="e.g. Neighbour's house"
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    West Side of House (पश्चिम)
+    <input
+      type="text"
+      value={westSide}
+      onChange={(event) => setWestSide(event.target.value)}
+      placeholder="e.g. Main road"
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    North Side of House (उत्तर)
+    <input
+      type="text"
+      value={northSide}
+      onChange={(event) => setNorthSide(event.target.value)}
+      placeholder="e.g. Vacant plot"
+      style={{ width: '100%', padding: 10 }}
+    />
+  </label>
+</p>
+
+<p>
+  <label>
+    South Side of House (दक्षिण)
+    <input
+      type="text"
+      value={southSide}
+      onChange={(event) => setSouthSide(event.target.value)}
+      placeholder="e.g. Agricultural land"
       style={{ width: '100%', padding: 10 }}
     />
   </label>
