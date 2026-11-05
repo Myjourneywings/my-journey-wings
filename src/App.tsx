@@ -1904,7 +1904,7 @@ const downloadSurveyPDF = () => {
   };
 
   const section = (heading: string) => {
-    ensureSpace(17);
+    ensureSpace(45);
     y += 3;
     pdf.setFillColor(...pale);
     pdf.roundedRect(margin, y, contentWidth, 9, 1.5, 1.5, 'F');
