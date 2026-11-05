@@ -1543,6 +1543,9 @@ const [reviewRemarks, setReviewRemarks] = useState('');
 const [surveyStatus, setSurveyStatus] = useState('draft');
 const [reviewSaving, setReviewSaving] = useState(false);
 
+const [reviewedBy, setReviewedBy] = useState('');
+const [reviewedAt, setReviewedAt] = useState('');
+
 useEffect(() => {
   if (!supabase) {
     setSurveyError('Supabase is not configured.');
@@ -1598,6 +1601,9 @@ useEffect(() => {
       
 setSurveyStatus(data.survey_status ?? 'draft');
 setReviewRemarks(data.reviewer_remarks ?? '');
+
+setReviewedBy(data.reviewed_by ?? '');
+setReviewedAt(data.reviewed_at ?? '');
 
       setSurveyReadOnly(data.survey_status !== 'draft');
     } else {
@@ -2279,6 +2285,34 @@ if (!supabase) {
 </button>
 )}
 </div>
+
+{(surveyStatus === 'approved' || surveyStatus === 'rejected') && (
+  <section style={{ marginTop: 24 }}>
+    <h3>Survey Review Details</h3>
+
+    <p>
+      <strong>Review Status: </strong>
+      {surveyStatus === 'approved' ? 'Approved' : 'Rejected'}
+    </p>
+
+    <p>
+      <strong>Reviewed By: </strong>
+      {reviewedBy ? 'Super Admin' : 'Not available'}
+    </p>
+
+    <p>
+      <strong>Review Date: </strong>
+      {reviewedAt
+        ? new Date(reviewedAt).toLocaleString('en-IN')
+        : 'Not available'}
+    </p>
+
+    <p>
+      <strong>Review Remarks: </strong>
+      {reviewRemarks || 'No remarks provided'}
+    </p>
+  </section>
+)}
 
 {canReview && surveyStatus === 'submitted' && (
   <section style={{ marginTop: 24 }}>
