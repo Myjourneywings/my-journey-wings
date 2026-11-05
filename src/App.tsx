@@ -1,6 +1,6 @@
 // Rebuild Case Details popup
 import { useEffect, useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -877,7 +877,7 @@ async function viewDocument(
 }
 
 async function uploadDocument(
-  event: React.ChangeEvent<HTMLInputElement>
+  event: ChangeEvent<HTMLInputElement>
 ) {
   const file = event.target.files?.[0];
 
@@ -1545,6 +1545,164 @@ const [reviewSaving, setReviewSaving] = useState(false);
 
 const [reviewedBy, setReviewedBy] = useState('');
 const [reviewedAt, setReviewedAt] = useState('');
+const [surveyPhotos, setSurveyPhotos] = useState<
+  {
+    id: string;
+    case_id: string;
+    file_path: string;
+    photo_caption: string | null;
+    uploaded_at: string;
+  }[]
+>([]);
+
+const [photoUploading, setPhotoUploading] = useState(false);
+const [photoLoading, setPhotoLoading] = useState(false);
+const [photoError, setPhotoError] = useState('');
+const [photoMessage, setPhotoMessage] = useState('');
+  
+const loadSurveyPhotos = async () => {
+  if (!supabase) {
+    setPhotoError('Supabase is not configured.');
+    return;
+  }
+
+  setPhotoLoading(true);
+  setPhotoError('');
+
+  try {
+    const { data, error } = await supabase
+      .from('loan_survey_photos')
+      .select('id, case_id, file_path, photo_caption, uploaded_at')
+      .eq('case_id', selectedCase.id)
+      .order('uploaded_at', { ascending: true });
+
+    if (error) throw error;
+
+    setSurveyPhotos(data ?? []);
+  } catch (error) {
+    setPhotoError(
+      error instanceof Error
+        ? error.message
+        : 'Unable to load survey photographs.'
+    );
+  } finally {
+    setPhotoLoading(false);
+  }
+};
+
+const uploadSurveyPhotos = async (
+  event: React.ChangeEvent<HTMLInputElement>
+) => {
+  const files = Array.from(event.target.files ?? []);
+  event.target.value = '';
+
+  if (!files.length) return;
+
+  if (!supabase) {
+    setPhotoError('Supabase is not configured.');
+    return;
+  }
+
+  if (!['draft', 'submitted'].includes(surveyStatus)) {
+    setPhotoError(
+      'Photographs cannot be uploaded after final review.'
+    );
+    return;
+  }
+
+  setPhotoUploading(true);
+  setPhotoError('');
+  setPhotoMessage('');
+
+  const allowedTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/webp'
+  ];
+
+  try {
+    const {
+      data: { user },
+      error: authError
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      throw new Error('Please sign in before uploading photographs.');
+    }
+
+    let uploadedCount = 0;
+
+    for (const file of files) {
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error(
+          'Only JPEG, PNG and WebP photographs are allowed.'
+        );
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error(
+          'Each photograph must be 10 MB or smaller.'
+        );
+      }
+
+      const extension =
+        file.type === 'image/png'
+          ? 'png'
+          : file.type === 'image/webp'
+            ? 'webp'
+            : 'jpg';
+
+      const filePath =
+        `${selectedCase.id}/${crypto.randomUUID()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('survey-photos')
+        .upload(filePath, file, {
+          contentType: file.type,
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { error: recordError } = await supabase
+        .from('loan_survey_photos')
+        .insert({
+          case_id: selectedCase.id,
+          file_path: filePath,
+          uploaded_by: user.id,
+          photo_caption: file.name
+        });
+
+      if (recordError) {
+        throw new Error(
+          `Photo uploaded, but its database record could not be saved: ${recordError.message}`
+        );
+      }
+
+      uploadedCount++;
+    }
+
+    setPhotoMessage(
+      `${uploadedCount} photograph(s) uploaded successfully.`
+    );
+
+    await loadSurveyPhotos();
+  } catch (error) {
+    setPhotoError(
+      error instanceof Error
+        ? error.message
+        : 'Unable to upload photographs.'
+    );
+
+    await loadSurveyPhotos();
+  } finally {
+    setPhotoUploading(false);
+  }
+};
+
+useEffect(() => {
+  void loadSurveyPhotos();
+}, [selectedCase.id]);
 
 useEffect(() => {
   if (!supabase) {
@@ -2023,6 +2181,52 @@ const downloadSurveyPDF = () => {
       <p>
         <strong>Case ID:</strong> #{selectedCase.case_number}
       </p>
+
+<section style={{ marginTop: 24, marginBottom: 24 }}>
+  <h4>Survey Photographs</h4>
+
+  <p>
+    Upload site photographs for this verification case.
+    Photographs may also be added after submitting for review.
+  </p>
+
+  {['draft', 'submitted'].includes(surveyStatus) && (
+    <label style={{ display: 'block', marginBottom: 16 }}>
+      Add Photographs
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        multiple
+        disabled={photoUploading || photoLoading}
+        onChange={uploadSurveyPhotos}
+        style={{ display: 'block', marginTop: 8 }}
+      />
+    </label>
+  )}
+
+  {photoUploading && <p>Uploading photographs...</p>}
+  {photoLoading && <p>Loading photographs...</p>}
+
+  {photoError && (
+    <p style={{ color: '#b91c1c' }}>{photoError}</p>
+  )}
+
+  {photoMessage && (
+    <p style={{ color: '#166534' }}>{photoMessage}</p>
+  )}
+
+  {surveyPhotos.length === 0 && !photoLoading && (
+    <p>No photographs uploaded yet.</p>
+  )}
+
+  {surveyPhotos.length > 0 && (
+    <p>{surveyPhotos.length} photograph(s) recorded.</p>
+  )}
+
+  {['approved', 'rejected'].includes(surveyStatus) && (
+    <p>Photograph uploads are locked after final review.</p>
+  )}
+</section>
 
 <h4>Report Details</h4>
 
