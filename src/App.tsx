@@ -3171,9 +3171,27 @@ module: ({
     approved: cases.filter(
       item => item.status === 'approved'
     ).length,
-    rejected: cases.filter(
-      item => item.status === 'rejected'
-    ).length
+ 
+rejected: cases.filter(
+  item => item.status === 'rejected'
+).length,
+
+loanVerification: cases.filter(
+  item => item.module === 'loan_verification'
+).length,
+
+solarVerification: cases.filter(
+  item => item.module === 'solar_verification'
+).length,
+
+preSanctionSolar: cases.filter(
+  item => item.module === 'pre_sanction_solar'
+).length,
+
+currentAccountVerification: cases.filter(
+  item => item.module === 'current_account_verification'
+).length
+
   }), [cases]);
 
   const nav = [
@@ -3475,7 +3493,7 @@ module: ({
               <div className="stats-grid">
                 <Stat
                   icon={FileCheck2}
-                  label="Recent cases"
+                  label="Total Cases"
                   value={counts.total}
                   tone="blue"
                 />
@@ -3501,6 +3519,43 @@ module: ({
                   tone="rose"
                 />
               </div>
+
+<div className="section-title">
+  <div>
+    <h2>Module-wise Case Statistics</h2>
+    <p>Total verification cases in each module</p>
+  </div>
+</div>
+
+<div className="stats-grid">
+  <Stat
+    icon={FileCheck2}
+    label="Loan Verification"
+    value={counts.loanVerification}
+    tone="blue"
+  />
+
+  <Stat
+    icon={Sun}
+    label="Solar Verification"
+    value={counts.solarVerification}
+    tone="amber"
+  />
+
+  <Stat
+    icon={ClipboardCheck}
+    label="Pre-Sanction Solar"
+    value={counts.preSanctionSolar}
+    tone="green"
+  />
+
+  <Stat
+    icon={Landmark}
+    label="Current Account Verification"
+    value={counts.currentAccountVerification}
+    tone="blue"
+  />
+</div>
 
               <div className="section-title">
                 <div>
