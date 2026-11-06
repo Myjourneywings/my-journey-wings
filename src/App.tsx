@@ -1081,7 +1081,7 @@ setDocumentUploaderNames(previous => ({
   </button>
 )}
 
-{surveyOpen && (
+{surveyOpen && selectedCase.module === 'loan_verification' && (
   
 <LoanVerificationSurvey
   selectedCase={selectedCase}
@@ -1089,7 +1089,12 @@ setDocumentUploaderNames(previous => ({
 />
 
 )}
-
+{surveyOpen && selectedCase.module === 'solar_verification' && (
+  <SolarVerificationSurvey
+    selectedCase={selectedCase}
+    canReview={canEdit && canAssign}
+  />
+)}
 {!surveyOpen && (
   <>
         <p>
@@ -1455,7 +1460,7 @@ Changed by: {activity.changed_by
           ) : (
             <>
               
-{selectedCase.module === 'loan_verification' && (
+{['loan_verification', 'solar_verification'].includes(selectedCase.module) && (
   <button
     type="button"
     onClick={() => setSurveyOpen(true)}
@@ -2991,7 +2996,73 @@ if (supabase && surveyPhotos.length > 0) {
     </div>
   );
 }
+/* SOLAR VERIFICATION SITE SURVEY */
 
+function SolarVerificationSurvey({
+  selectedCase,
+}: {
+  selectedCase: CaseRow;
+  canReview: boolean;
+}) {
+  const [verificationType, setVerificationType] = useState<
+    'pre_installation' | 'post_installation'
+  >('pre_installation');
+
+  return (
+    <div>
+      <h2>Solar Verification Site Survey</h2>
+
+      <p>
+        <strong>Case ID:</strong> #{selectedCase.case_number}
+      </p>
+
+      <p>
+        <strong>Applicant:</strong> {selectedCase.customer_name}
+      </p>
+
+      <label htmlFor="solar-verification-type">
+        Verification Type
+      </label>
+
+      <select
+        id="solar-verification-type"
+        value={verificationType}
+        onChange={(e) =>
+          setVerificationType(
+            e.target.value as
+              | 'pre_installation'
+              | 'post_installation'
+          )
+        }
+      >
+        <option value="pre_installation">
+          Pre-Installation Verification
+        </option>
+        <option value="post_installation">
+          Post-Installation Verification
+        </option>
+      </select>
+
+      {verificationType === 'pre_installation' ? (
+        <section>
+          <h3>Pre-Installation Site Survey</h3>
+          <p>
+            Rooftop condition, proposed solar capacity,
+            available area and site feasibility.
+          </p>
+        </section>
+      ) : (
+        <section>
+          <h3>Post-Installation Site Survey</h3>
+          <p>
+            Installed solar panels, inverter, electricity
+            meter and system operation.
+          </p>
+        </section>
+      )}
+    </div>
+  );
+}
 /* MAIN APPLICATION */
 
 function App() {
