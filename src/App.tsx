@@ -3223,11 +3223,13 @@ const filteredDashboardCases = useMemo(() => {
 
   const counts = useMemo(() => ({
     total: filteredDashboardCases.length,
-    pending: filteredDashboardCases.filter(
-      ['new', 'in_progress', 'pending'].includes(
-        item.status
-      )
-    ).length,
+    
+pending: filteredDashboardCases.filter(
+  item => ['new', 'in_progress', 'pending'].includes(
+    item.status
+  )
+).length,
+
     approved: filteredDashboardCases.filter(
       item => item.status === 'approved'
     ).length,
