@@ -3031,9 +3031,211 @@ const [inverterMake, setInverterMake] = useState('');
 const [inverterCapacity, setInverterCapacity] = useState('');
 const [meterStatus, setMeterStatus] = useState('');
 const [systemWorking, setSystemWorking] = useState('');
+  
+const [solarSurveyLoading, setSolarSurveyLoading] = useState(true);
+const [solarSurveySaving, setSolarSurveySaving] = useState(false);
+const [solarSurveyError, setSolarSurveyError] = useState('');
+const [solarSurveyNotice, setSolarSurveyNotice] = useState('');
+const [solarSurveyStatus, setSolarSurveyStatus] = useState<
+  'draft' | 'submitted' | 'approved' | 'rejected' | null
+>(null);
+const [solarSurveyReadOnly, setSolarSurveyReadOnly] = useState(false);
+
+useEffect(() => {
+  if (!supabase) {
+    setSolarSurveyError('Supabase is not configured.');
+    setSolarSurveyLoading(false);
+    return;
+  }
+
+  const client = supabase;
+  let cancelled = false;
+
+  const loadSolarSurvey = async () => {
+    setSolarSurveyLoading(true);
+    setSolarSurveyError('');
+    setSolarSurveyNotice('');
+
+    const { data, error } = await client
+      .from('solar_verification_surveys')
+      .select('*')
+      .eq('case_id', selectedCase.id)
+      .eq('verification_type', verificationType)
+      .maybeSingle();
+
+    if (cancelled) return;
+
+    if (error) {
+      setSolarSurveyError(error.message);
+      setSolarSurveyReadOnly(true);
+    } else if (data) {
+      setVerificationType(data.verification_type ?? 'pre_installation');
+      setMobileNumber(data.mobile_number ?? '');
+      setSiteAddress(data.site_address ?? '');
+      setDistrict(data.district ?? '');
+      setSurveyDate(data.survey_date ?? '');
+      setConsumerNumber(data.consumer_number ?? '');
+      setDiscomName(data.discom_name ?? '');
+      setAgentRemarks(data.agent_remarks ?? '');
+
+      setPropertyType(data.property_type ?? '');
+      setRoofType(data.roof_type ?? '');
+      setRoofCondition(data.roof_condition ?? '');
+      setAvailableRoofArea(
+        data.available_roof_area?.toString() ?? ''
+      );
+      setProposedCapacity(
+        data.proposed_capacity?.toString() ?? ''
+      );
+      setShadowCondition(data.shadow_condition ?? '');
+      setSiteFeasibility(data.site_feasibility ?? '');
+
+      setInstalledCapacity(
+        data.installed_capacity?.toString() ?? ''
+      );
+      setPanelQuantity(
+        data.panel_quantity?.toString() ?? ''
+      );
+      setPanelMake(data.panel_make ?? '');
+      setInverterMake(data.inverter_make ?? '');
+      setInverterCapacity(
+        data.inverter_capacity?.toString() ?? ''
+      );
+      setMeterStatus(data.meter_status ?? '');
+      setSystemWorking(data.system_working ?? '');
+
+      setSolarSurveyStatus(data.survey_status ?? 'draft');
+      setSolarSurveyReadOnly(
+        data.survey_status !== 'draft'
+      );
+    } else {
+      setSolarSurveyStatus(null);
+      setSolarSurveyReadOnly(false);
+    }
+
+    setSolarSurveyLoading(false);
+  };
+
+  void loadSolarSurvey();
+
+  return () => {
+    cancelled = true;
+  };
+}, [selectedCase.id, verificationType]);
+
+const saveSolarDraft = async () => {
+  if (!supabase || solarSurveySaving || solarSurveyLoading || solarSurveyReadOnly) {
+    return;
+  }
+
+  setSolarSurveySaving(true);
+  setSolarSurveyError('');
+  setSolarSurveyNotice('');
+
+  try {
+    const { data: userData, error: userError } =
+      await supabase.auth.getUser();
+
+    if (userError || !userData.user) {
+      throw new Error('Please sign in again.');
+    }
+
+    const payload = {
+      case_id: selectedCase.id,
+      verification_type: verificationType,
+      survey_status: 'draft',
+      mobile_number: mobileNumber,
+      site_address: siteAddress,
+      district,
+      survey_date: surveyDate || null,
+      consumer_number: consumerNumber,
+      discom_name: discomName,
+      agent_remarks: agentRemarks,
+      property_type: propertyType,
+      roof_type: roofType,
+      roof_condition: roofCondition,
+      available_roof_area: availableRoofArea === '' ? null : Number(availableRoofArea),
+      proposed_capacity: proposedCapacity === '' ? null : Number(proposedCapacity),
+      shadow_condition: shadowCondition,
+      site_feasibility: siteFeasibility,
+      installed_capacity: installedCapacity === '' ? null : Number(installedCapacity),
+      panel_quantity: panelQuantity === '' ? null : Number(panelQuantity),
+      panel_make: panelMake,
+      inverter_make: inverterMake,
+      inverter_capacity: inverterCapacity === '' ? null : Number(inverterCapacity),
+      meter_status: meterStatus,
+      system_working: systemWorking,
+      surveyed_by: userData.user.id,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: existing, error: lookupError } = await supabase
+      .from('solar_verification_surveys')
+      .select('id, survey_status')
+      .eq('case_id', selectedCase.id)
+      
+.eq('verification_type', verificationType)
+
+      .maybeSingle();
+
+    if (lookupError) throw lookupError;
+
+    if (existing && existing.survey_status !== 'draft') {
+      throw new Error('This survey is no longer editable.');
+    }
+
+    if (existing) {
+      const { error } = await supabase
+        .from('solar_verification_surveys')
+        .update(payload)
+        .eq('id', existing.id)
+        .eq('survey_status', 'draft');
+
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('solar_verification_surveys')
+        .insert(payload);
+
+      if (error) throw error;
+    }
+
+    setSolarSurveyStatus('draft');
+    setSolarSurveyNotice('Solar Verification draft saved successfully.');
+  } catch (error) {
+    setSolarSurveyError(
+      error instanceof Error ? error.message : 'Unable to save survey.'
+    );
+  } finally {
+    setSolarSurveySaving(false);
+  }
+};
+
   return (
     <div>
       <h2>Solar Verification Site Survey</h2>
+
+{solarSurveyLoading && (
+  <p>Loading Solar Verification survey...</p>
+)}
+
+{solarSurveyError && (
+  <p role="alert" style={{ color: 'red' }}>
+    {solarSurveyError}
+  </p>
+)}
+
+{solarSurveyNotice && (
+  <p role="status" style={{ color: 'green' }}>
+    {solarSurveyNotice}
+  </p>
+)}
+
+{solarSurveyStatus && (
+  <p>
+    <strong>Survey Status:</strong> {solarSurveyStatus}
+  </p>
+)}
 
       <p>
         <strong>Case ID:</strong> #{selectedCase.case_number}
@@ -3328,6 +3530,17 @@ const [systemWorking, setSystemWorking] = useState('');
 </section>
 
       )}
+      
+<section style={{ marginTop: 24 }}>
+  <button
+  type="button"
+  onClick={() => void saveSolarDraft()}
+  disabled={solarSurveyLoading || solarSurveySaving || solarSurveyReadOnly}
+>
+    Save Draft
+  </button>
+</section>
+
     </div>
   );
 }
