@@ -3007,7 +3007,30 @@ function SolarVerificationSurvey({
   const [verificationType, setVerificationType] = useState<
     'pre_installation' | 'post_installation'
   >('pre_installation');
+const [mobileNumber, setMobileNumber] = useState('');
+const [siteAddress, setSiteAddress] = useState('');
+const [district, setDistrict] = useState('');
+const [surveyDate, setSurveyDate] = useState('');
+const [consumerNumber, setConsumerNumber] = useState('');
+const [discomName, setDiscomName] = useState('');
+const [agentRemarks, setAgentRemarks] = useState('');
+  // Pre-Installation Details
+const [propertyType, setPropertyType] = useState('');
+const [roofType, setRoofType] = useState('');
+const [roofCondition, setRoofCondition] = useState('');
+const [availableRoofArea, setAvailableRoofArea] = useState('');
+const [proposedCapacity, setProposedCapacity] = useState('');
+const [shadowCondition, setShadowCondition] = useState('');
+const [siteFeasibility, setSiteFeasibility] = useState('');
 
+// Post-Installation Details
+const [installedCapacity, setInstalledCapacity] = useState('');
+const [panelQuantity, setPanelQuantity] = useState('');
+const [panelMake, setPanelMake] = useState('');
+const [inverterMake, setInverterMake] = useState('');
+const [inverterCapacity, setInverterCapacity] = useState('');
+const [meterStatus, setMeterStatus] = useState('');
+const [systemWorking, setSystemWorking] = useState('');
   return (
     <div>
       <h2>Solar Verification Site Survey</h2>
@@ -3019,7 +3042,80 @@ function SolarVerificationSurvey({
       <p>
         <strong>Applicant:</strong> {selectedCase.customer_name}
       </p>
+<section style={{ marginTop: 20 }}>
+  <h3>Applicant & Site Details</h3>
 
+  <div style={{ display: 'grid', gap: 12, maxWidth: 600 }}>
+    <label>
+      Mobile Number
+      <input
+        type="tel"
+        value={mobileNumber}
+        onChange={(e) => setMobileNumber(e.target.value)}
+        placeholder="Enter mobile number"
+      />
+    </label>
+
+    <label>
+      Site Address
+      <textarea
+        value={siteAddress}
+        onChange={(e) => setSiteAddress(e.target.value)}
+        placeholder="Enter complete site address"
+        rows={3}
+      />
+    </label>
+
+    <label>
+      District
+      <input
+        type="text"
+        value={district}
+        onChange={(e) => setDistrict(e.target.value)}
+        placeholder="Enter district"
+      />
+    </label>
+
+    <label>
+      Survey Date
+      <input
+        type="date"
+        value={surveyDate}
+        onChange={(e) => setSurveyDate(e.target.value)}
+      />
+    </label>
+
+    <label>
+      Electricity Consumer Number
+      <input
+        type="text"
+        value={consumerNumber}
+        onChange={(e) => setConsumerNumber(e.target.value)}
+        placeholder="Enter consumer number"
+      />
+    </label>
+
+    <label>
+      DISCOM Name
+      <input
+        type="text"
+        value={discomName}
+        onChange={(e) => setDiscomName(e.target.value)}
+        placeholder="Enter electricity distribution company"
+      />
+    </label>
+
+    <label>
+      Agent Remarks
+      <textarea
+        value={agentRemarks}
+        onChange={(e) => setAgentRemarks(e.target.value)}
+        placeholder="Enter site verification remarks"
+        rows={4}
+      />
+    </label>
+  </div>
+</section>
       <label htmlFor="solar-verification-type">
         Verification Type
       </label>
@@ -3044,21 +3140,193 @@ function SolarVerificationSurvey({
       </select>
 
       {verificationType === 'pre_installation' ? (
-        <section>
-          <h3>Pre-Installation Site Survey</h3>
-          <p>
-            Rooftop condition, proposed solar capacity,
-            available area and site feasibility.
-          </p>
-        </section>
+       
+<section style={{ marginTop: 20 }}>
+  <h3>Pre-Installation Site Survey</h3>
+
+  <div style={{ display: 'grid', gap: 12, maxWidth: 600 }}>
+    <label>
+      Property Type
+      <select
+        value={propertyType}
+        onChange={(e) => setPropertyType(e.target.value)}
+      >
+        <option value="">Select Property Type</option>
+        <option value="residential">Residential</option>
+        <option value="commercial">Commercial</option>
+        <option value="industrial">Industrial</option>
+        <option value="other">Other</option>
+      </select>
+    </label>
+
+    <label>
+      Roof Type
+      <select
+        value={roofType}
+        onChange={(e) => setRoofType(e.target.value)}
+      >
+        <option value="">Select Roof Type</option>
+        <option value="rcc">RCC</option>
+        <option value="tin_shed">Tin Shed</option>
+        <option value="tile">Tile Roof</option>
+        <option value="other">Other</option>
+      </select>
+    </label>
+
+    <label>
+      Roof Condition
+      <select
+        value={roofCondition}
+        onChange={(e) => setRoofCondition(e.target.value)}
+      >
+        <option value="">Select Roof Condition</option>
+        <option value="good">Good</option>
+        <option value="average">Average</option>
+        <option value="poor">Poor</option>
+      </select>
+    </label>
+
+    <label>
+      Available Rooftop Area (sq. ft.)
+      <input
+        type="number"
+        min="0"
+        value={availableRoofArea}
+        onChange={(e) => setAvailableRoofArea(e.target.value)}
+        placeholder="Enter rooftop area"
+      />
+    </label>
+
+    <label>
+      Proposed Solar Capacity (kW)
+      <input
+        type="number"
+        min="0"
+        step="0.1"
+        value={proposedCapacity}
+        onChange={(e) => setProposedCapacity(e.target.value)}
+        placeholder="Enter proposed capacity"
+      />
+    </label>
+
+    <label>
+      Shadow Condition
+      <select
+        value={shadowCondition}
+        onChange={(e) => setShadowCondition(e.target.value)}
+      >
+        <option value="">Select Shadow Condition</option>
+        <option value="no_shadow">No Shadow</option>
+        <option value="partial_shadow">Partial Shadow</option>
+        <option value="heavy_shadow">Heavy Shadow</option>
+      </select>
+    </label>
+
+    <label>
+      Site Feasibility
+      <select
+        value={siteFeasibility}
+        onChange={(e) => setSiteFeasibility(e.target.value)}
+      >
+        <option value="">Select Site Feasibility</option>
+        <option value="feasible">Feasible</option>
+        <option value="not_feasible">Not Feasible</option>
+        <option value="needs_review">Needs Review</option>
+      </select>
+    </label>
+  </div>
+</section>
+
       ) : (
-        <section>
-          <h3>Post-Installation Site Survey</h3>
-          <p>
-            Installed solar panels, inverter, electricity
-            meter and system operation.
-          </p>
-        </section>
+        
+<section style={{ marginTop: 20 }}>
+  <h3>Post-Installation Site Survey</h3>
+
+  <div style={{ display: 'grid', gap: 12, maxWidth: 600 }}>
+    <label>
+      Installed Solar Capacity (kW)
+      <input
+        type="number"
+        min="0"
+        step="0.1"
+        value={installedCapacity}
+        onChange={(e) => setInstalledCapacity(e.target.value)}
+        placeholder="Enter installed capacity"
+      />
+    </label>
+
+    <label>
+      Number of Solar Panels
+      <input
+        type="number"
+        min="0"
+        step="1"
+        value={panelQuantity}
+        onChange={(e) => setPanelQuantity(e.target.value)}
+        placeholder="Enter panel quantity"
+      />
+    </label>
+
+    <label>
+      Solar Panel Manufacturer
+      <input
+        type="text"
+        value={panelMake}
+        onChange={(e) => setPanelMake(e.target.value)}
+        placeholder="Enter panel make"
+      />
+    </label>
+
+    <label>
+      Inverter Manufacturer
+      <input
+        type="text"
+        value={inverterMake}
+        onChange={(e) => setInverterMake(e.target.value)}
+        placeholder="Enter inverter make"
+      />
+    </label>
+
+    <label>
+      Inverter Capacity (kW)
+      <input
+        type="number"
+        min="0"
+        step="0.1"
+        value={inverterCapacity}
+        onChange={(e) => setInverterCapacity(e.target.value)}
+        placeholder="Enter inverter capacity"
+      />
+    </label>
+
+    <label>
+      Solar Meter Status
+      <select
+        value={meterStatus}
+        onChange={(e) => setMeterStatus(e.target.value)}
+      >
+        <option value="">Select Meter Status</option>
+        <option value="installed">Installed</option>
+        <option value="not_installed">Not Installed</option>
+        <option value="pending">Pending</option>
+      </select>
+    </label>
+
+    <label>
+      Solar System Working Status
+      <select
+        value={systemWorking}
+        onChange={(e) => setSystemWorking(e.target.value)}
+      >
+        <option value="">Select Working Status</option>
+        <option value="working">Working</option>
+        <option value="not_working">Not Working</option>
+        <option value="partially_working">Partially Working</option>
+      </select>
+    </label>
+  </div>
+</section>
+
       )}
     </div>
   );
