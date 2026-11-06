@@ -3003,6 +3003,13 @@ function App() {
 
   const [cases, setCases] = useState<CaseRow[]>([]);
   
+const [dashboardDateFilter, setDashboardDateFilter] = useState<
+  'all' | 'today' | 'week' | 'month' | 'custom'
+>('all');
+
+const [dashboardStartDate, setDashboardStartDate] = useState('');
+const [dashboardEndDate, setDashboardEndDate] = useState('');
+
 const [selectedCase, setSelectedCase] = useState<CaseRow | null>(null);
 
 
@@ -3161,38 +3168,91 @@ module: ({
     };
   }, [session?.user.id]);
 
+const filteredDashboardCases = useMemo(() => {
+  const now = new Date();
+
+  const localDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const today = localDate(now);
+
+  const startOfWeek = new Date(now);
+  const dayOfWeek = (now.getDay() + 6) % 7;
+  startOfWeek.setDate(now.getDate() - dayOfWeek);
+
+  const startOfMonth = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1
+  );
+
+  return cases.filter((item) => {
+    const createdDate = new Date(item.created_at);
+    if (Number.isNaN(createdDate.getTime())) return false;
+
+    const date = localDate(createdDate);
+
+    if (dashboardDateFilter === 'all') return true;
+    if (dashboardDateFilter === 'today') return date === today;
+
+    if (dashboardDateFilter === 'week') {
+      return date >= localDate(startOfWeek) && date <= today;
+    }
+
+    if (dashboardDateFilter === 'month') {
+      return date >= localDate(startOfMonth) && date <= today;
+    }
+
+    if (dashboardDateFilter === 'custom') {
+      if (dashboardStartDate && date < dashboardStartDate) return false;
+      if (dashboardEndDate && date > dashboardEndDate) return false;
+    }
+
+    return true;
+  });
+}, [
+  cases,
+  dashboardDateFilter,
+  dashboardStartDate,
+  dashboardEndDate
+]);
+
   const counts = useMemo(() => ({
-    total: cases.length,
-    pending: cases.filter(item =>
+    total: filteredDashboardCases.length,
+    pending: filteredDashboardCases.filter(
       ['new', 'in_progress', 'pending'].includes(
         item.status
       )
     ).length,
-    approved: cases.filter(
+    approved: filteredDashboardCases.filter(
       item => item.status === 'approved'
     ).length,
  
-rejected: cases.filter(
+rejected: filteredDashboardCases.filter(
   item => item.status === 'rejected'
 ).length,
 
-loanVerification: cases.filter(
+loanVerification: filteredDashboardCases.filter(
   item => item.module === 'loan_verification'
 ).length,
 
-solarVerification: cases.filter(
+solarVerification: filteredDashboardCases.filter(
   item => item.module === 'solar_verification'
 ).length,
 
-preSanctionSolar: cases.filter(
+preSanctionSolar: filteredDashboardCases.filter(
   item => item.module === 'pre_sanction_solar'
 ).length,
 
-currentAccountVerification: cases.filter(
+currentAccountVerification: filteredDashboardCases.filter(
   item => item.module === 'current_account_verification'
 ).length
 
-  }), [cases]);
+  }), [filteredDashboardCases]);
 
   const nav = [
     { name: 'Dashboard', icon: LayoutDashboard },
@@ -3490,6 +3550,67 @@ currentAccountVerification: cases.filter(
 
           {page === 'Dashboard' ? (
             <>
+              
+<div
+  style={{
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 24
+  }}
+>
+  <label htmlFor="dashboard-date-filter">
+    <strong>Filter by Date:</strong>
+  </label>
+
+  <select
+    id="dashboard-date-filter"
+    value={dashboardDateFilter}
+    onChange={(event) =>
+      setDashboardDateFilter(
+        event.target.value as
+          'all' | 'today' | 'week' | 'month' | 'custom'
+      )
+    }
+    style={{ padding: 10, borderRadius: 8 }}
+  >
+    <option value="all">All Time</option>
+    <option value="today">Today</option>
+    <option value="week">This Week</option>
+    <option value="month">This Month</option>
+    <option value="custom">Custom Date Range</option>
+  </select>
+
+  {dashboardDateFilter === 'custom' && (
+    <>
+      <label>
+        From:
+        <input
+          type="date"
+          value={dashboardStartDate}
+          onChange={(event) =>
+            setDashboardStartDate(event.target.value)
+          }
+          style={{ marginLeft: 8, padding: 8 }}
+        />
+      </label>
+
+      <label>
+        To:
+        <input
+          type="date"
+          value={dashboardEndDate}
+          onChange={(event) =>
+            setDashboardEndDate(event.target.value)
+          }
+          style={{ marginLeft: 8, padding: 8 }}
+        />
+      </label>
+    </>
+  )}
+</div>
+
               <div className="stats-grid">
                 <Stat
                   icon={FileCheck2}
