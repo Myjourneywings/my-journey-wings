@@ -3131,7 +3131,7 @@ module: ({
             .order('created_at', {
               ascending: false
             })
-            .limit(8)
+            .limit(1000)
         ]);
 
       if (cancelled) return;
